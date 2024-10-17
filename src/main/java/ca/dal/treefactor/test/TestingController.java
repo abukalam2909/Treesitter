@@ -16,7 +16,7 @@ public class TestingController {
 	@PostMapping("/github/clone")
 	public void cloneRepos(@RequestBody GithubCloneBody body) throws IOException, InterruptedException {
 
-		GithubUtil.getRepositoryPat(body.getOwner(), body.getRepoName(), body.getOldCommitId(), body.getNewCommitId(), body.getToken());
+		GithubUtil.downloadAndCreateRepoDirectoriesPat(body.getOwner(), body.getRepoName(), body.getToken(), body.getOldCommitId(), body.getNewCommitId());
 	}
 
 }
