@@ -11,11 +11,13 @@ public class GithubUtil {
 	private GithubUtil() {}
 
 	/**
-	 * 
-	 * @param body The body of the request that is hit, ONLY USED FOR TESTING
+	 * Downloads the specified repository into a Temp directory, and creates two folders. Both folders will have code from the specified commits. The code from the original commit will be in "old", and the code from the latest commit will be in "new".
+	 * @param owner The owner of the repo
+	 * @param repoName Name of the repo to be checked
+	 * @param oldCommitId The original commit
+	 * @param newCommitId The latest commit
+	 * @param token The auth token for accessing the repo
 	 * @return The File object pointing to the directory with the folders containing the new and old commits.
-	 * @throws IOException
-	 * @throws InterruptedException
 	 */
 	public static File getRepositoryPat(String owner, String repoName, String oldCommitId, String newCommitId, String token) throws IOException, InterruptedException {
 
@@ -49,11 +51,9 @@ public class GithubUtil {
 	}
 
 	/**
-	 * 
+	 * Will check out the specified commit, for a given directory.
 	 * @param repoDir The directory to the repository
 	 * @param commitId The ID of the commit that will be checked out
-	 * @throws InterruptedException
-	 * @throws IOException
 	 */
 	public static void checkoutCommit(File repoDir, String commitId) throws InterruptedException, IOException {
 		String[] newCommitArgs = new String[] {"git", "checkout", commitId};
