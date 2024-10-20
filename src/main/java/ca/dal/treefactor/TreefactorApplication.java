@@ -1,23 +1,22 @@
 package ca.dal.treefactor;
 
-import ca.dal.treefactor.API.GitHistoryRefactoringMiner;
-import ca.dal.treefactor.API.GitService;
-import ca.dal.treefactor.util.GitHistoryRefactoringMinerImpl;
-import ca.dal.treefactor.util.GitServiceImpl;
-import org.eclipse.jgit.lib.Repository;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import java.util.List;
+import org.eclipse.jgit.lib.Repository;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+import ca.dal.treefactor.API.GitHistoryTreefactor;
+import ca.dal.treefactor.API.GitService;
+import ca.dal.treefactor.util.GitHistoryTreefactorImpl;
+import ca.dal.treefactor.util.GitServiceImpl;
 
 @SpringBootApplication
 public class TreefactorApplication {
-	public static void main(String[] args) throws ArgumentException{
+	public static void main(String[] args) throws Exception{
 		SpringApplication.run(TreefactorApplication.class, args);
 		if (args.length < 1) {
 			help();
@@ -58,7 +57,7 @@ public class TreefactorApplication {
 		}
 	}
 
-	private static void handleAllCommits(String[] args) throws ArgumentException{
+	private static void handleAllCommits(String[] args) throws Exception{
 		int maxArgLength = setupJsonOutput(args, 3);
 		if (args.length > maxArgLength) {
 			throw new ArgumentException("Invalid number of arguments for -a option.");
@@ -66,9 +65,16 @@ public class TreefactorApplication {
 		String repoFolder = args[1];
 		String branch = args.length >= 3 && !args[2].equals("-json") ? args[2] : null;  // Analyze all branches if branch is not provided
 		Path jsonFilePath = JsonFilePath(maxArgLength, 3, args);
+		
+		GitService gitService = new GitServiceImpl();
+		try (Repository repo = gitService.openRepository(repoFolder)) {
+			String gitURL = repo.getConfig().getString("remote", "origin", "url");
+			GitHistoryTreefactor detector = new GitHistoryTreefactorImpl();
+			detector.detectAll(repo, branch);
+		}
 	}
 
-	private static void handleBetweenCommits(String[] args) throws ArgumentException{
+	private static void handleBetweenCommits(String[] args) throws Exception{
 		int maxArgLength = setupJsonOutput(args, 4);
 		if (!(args.length == maxArgLength-1 || args.length == maxArgLength)) {
 			throw new ArgumentException("Invalid number of arguments for -bc option.");
@@ -79,7 +85,7 @@ public class TreefactorApplication {
 		Path jsonFilePath = JsonFilePath(maxArgLength, 4, args);
 	}
 
-	private static void handleBetweenTags(String[] args) throws ArgumentException{
+	private static void handleBetweenTags(String[] args) throws Exception{
 		int maxArgLength = setupJsonOutput(args, 4);
 		if (!(args.length == maxArgLength-1 || args.length == maxArgLength)) {
 			throw new ArgumentException("Invalid number of arguments for -bt option.");
@@ -90,7 +96,7 @@ public class TreefactorApplication {
 		Path jsonFilePath = JsonFilePath(maxArgLength, 4, args);
 	}
 
-	private static void handleCommit(String[] args) throws ArgumentException {
+	private static void handleCommit(String[] args) throws Exception {
 		int maxArgLength = setupJsonOutput(args, 3);
 		if (args.length != maxArgLength) {
 			throw new ArgumentException("Invalid number of arguments for -c option.");
@@ -100,14 +106,12 @@ public class TreefactorApplication {
 		Path jsonFilePath = JsonFilePath(maxArgLength, 3, args);
 		GitService gitService = new GitServiceImpl();
 		try (Repository repo = gitService.openRepository(folder)) {
-			GitHistoryRefactoringMiner detector = new GitHistoryRefactoringMinerImpl();
+			GitHistoryTreefactor detector = new GitHistoryTreefactorImpl();
 			detector.detectAtCommit(repo,commitId);
-		}catch (Exception e){
-			System.out.println(e);
 		}
 	}
 
-	private static void handleGitHubCommit(String[] args) throws ArgumentException {
+	private static void handleGitHubCommit(String[] args) throws Exception {
 		int maxArgLength = setupJsonOutput(args, 4);
 		if (args.length != maxArgLength) {
 			throw new ArgumentException("Invalid number of arguments for -gc option.");
@@ -118,7 +122,7 @@ public class TreefactorApplication {
 		Path jsonFilePath = JsonFilePath(maxArgLength, 4, args);
 	}
 
-	private static void handleGitHubPullRequest(String[] args) throws ArgumentException {
+	private static void handleGitHubPullRequest(String[] args) throws Exception {
 		int maxArgLength = setupJsonOutput(args, 4);
 		if (args.length != maxArgLength) {
 			throw new ArgumentException("Invalid number of arguments for -gp option.");
