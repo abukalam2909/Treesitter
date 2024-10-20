@@ -1,5 +1,10 @@
 package ca.dal.treefactor;
 
+import ca.dal.treefactor.API.GitHistoryRefactoringMiner;
+import ca.dal.treefactor.API.GitService;
+import ca.dal.treefactor.util.GitHistoryRefactoringMinerImpl;
+import ca.dal.treefactor.util.GitServiceImpl;
+import org.eclipse.jgit.lib.Repository;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -7,6 +12,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
+import java.util.List;
 
 @SpringBootApplication
 public class TreefactorApplication {
@@ -88,9 +95,16 @@ public class TreefactorApplication {
 		if (args.length != maxArgLength) {
 			throw new ArgumentException("Invalid number of arguments for -c option.");
 		}
-		String repoFolder = args[1];
+		String folder = args[1];
 		String commitId = args[2];
 		Path jsonFilePath = JsonFilePath(maxArgLength, 3, args);
+		GitService gitService = new GitServiceImpl();
+		try (Repository repo = gitService.openRepository(folder)) {
+			GitHistoryRefactoringMiner detector = new GitHistoryRefactoringMinerImpl();
+			detector.detectAtCommit(repo,commitId);
+		}catch (Exception e){
+			System.out.println(e);
+		}
 	}
 
 	private static void handleGitHubCommit(String[] args) throws ArgumentException {
