@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
+import io.github.treesitter.jtreesitter.Language;
+
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectLoader;
 import org.eclipse.jgit.lib.Repository;
@@ -133,7 +135,32 @@ public class GitHistoryTreefactorImpl implements GitHistoryTreefactor {
                 try (FileOutputStream outputStream = new FileOutputStream(outputFile)) {
                     outputStream.write(fileContent.getBytes(StandardCharsets.UTF_8));
                 }
+
+                // Check if the file type is supported by Tree-sitter
+                if (isSupportedFile(filePath)) {
+                    try {
+                        Language language = TreeSitterUtil.loadLanguageForFileExtension(filePath);
+                        TreeSitterUtil.generateAST(language, fileContent);
+                    } catch (Exception e) {
+                        System.err.println("Error processing file: " + filePath);
+                        e.printStackTrace();
+                    }
+                } else {
+                    System.out.println("Skipping unsupported file: " + filePath);
+                }
             }
         }
     }
+
+    // Helper method to check supported file extensions
+    private boolean isSupportedFile(String filePath) {
+        String[] supportedExtensions = { ".js", ".py", ".cpp" };  // Add extensions as needed
+        for (String extension : supportedExtensions) {
+            if (filePath.endsWith(extension)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 }
