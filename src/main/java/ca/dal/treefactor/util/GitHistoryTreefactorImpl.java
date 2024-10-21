@@ -171,11 +171,11 @@ public class GitHistoryTreefactorImpl implements GitHistoryTreefactor {
 
     // Helper method to save AST as files
     private void saveAST(File commitFolder, String filePath, String astString) {
-        String outputASTFileName = filePath.substring(0, filePath.lastIndexOf('.')) + "_[AST].txt";
+        String outputASTFileName = filePath.substring(0, filePath.lastIndexOf('.')) + "_[CST].txt";
         File outputASTFile = new File(commitFolder, outputASTFileName);
         try (FileOutputStream fos = new FileOutputStream(outputASTFile)) {
             fos.write(astString.getBytes(StandardCharsets.UTF_8));
-            System.out.println("AST saved to " + outputASTFile);
+            System.out.println("CST saved to " + outputASTFile);
         } catch (IOException e) {
             System.err.println("Error writing to file:");
             e.printStackTrace();
