@@ -140,7 +140,13 @@ public class GitHistoryTreefactorImpl implements GitHistoryTreefactor {
                 if (isSupportedFile(filePath)) {
                     try {
                         Language language = TreeSitterUtil.loadLanguageForFileExtension(filePath);
-                        TreeSitterUtil.generateAST(language, fileContent);
+                        String astString = TreeSitterUtil.generateAST(language, fileContent);
+                        System.out.println(filePath);
+                        // Save the AST to commitFolder
+                        saveAST(commitFolder, filePath, astString);
+                        //System.out.println("Abstract Syntax Tree:");
+                        //System.out.println(astString);
+
                     } catch (Exception e) {
                         System.err.println("Error processing file: " + filePath);
                         e.printStackTrace();
@@ -161,6 +167,19 @@ public class GitHistoryTreefactorImpl implements GitHistoryTreefactor {
             }
         }
         return false;
+    }
+
+    // Helper method to save AST as files
+    private void saveAST(File commitFolder, String filePath, String astString) {
+        String outputASTFileName = filePath.substring(0, filePath.lastIndexOf('.')) + "_[CST].txt";
+        File outputASTFile = new File(commitFolder, outputASTFileName);
+        try (FileOutputStream fos = new FileOutputStream(outputASTFile)) {
+            fos.write(astString.getBytes(StandardCharsets.UTF_8));
+            System.out.println("CST saved to " + outputASTFile);
+        } catch (IOException e) {
+            System.err.println("Error writing to file:");
+            e.printStackTrace();
+        }
     }
 
 }
