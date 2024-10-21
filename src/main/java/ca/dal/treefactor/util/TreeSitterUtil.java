@@ -20,15 +20,15 @@ public class TreeSitterUtil {
 
         switch (extension) {
             case "cpp":
-                libPath = copyLibrary(tempDir, "libtree-sitter-cpp.dll");
+                libPath = copyLibrary(tempDir, "libtree-sitter-cpp.dylib"); //dll
                 language = loadLanguage(libPath, "tree_sitter_cpp");
                 break;
             case "js":
-                libPath = copyLibrary(tempDir, "libtree-sitter-javascript.dll");
+                libPath = copyLibrary(tempDir, "libtree-sitter-javascript.dylib");
                 language = loadLanguage(libPath, "tree_sitter_javascript");
                 break;
             case "py":
-                libPath = copyLibrary(tempDir, "libtree-sitter-python.dll");
+                libPath = copyLibrary(tempDir, "libtree-sitter-python.dylib");
                 language = loadLanguage(libPath, "tree_sitter_python");
                 break;
             default:
@@ -41,22 +41,26 @@ public class TreeSitterUtil {
         return Files.readString(Paths.get(filePath));
     }
 
-    public static void generateAST(Language language, String code) {
+    public static String generateAST(Language language, String code) {
         try (Parser parser = new Parser()) {
             parser.setLanguage(language);
             try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
                 Node rootNode = tree.getRootNode();
-                printASTWithCursor(rootNode);
+                ASTUtil.ASTNode astRoot = ASTUtil.buildASTWithCursor(rootNode);
+                String astString = ASTUtil.printAST(astRoot, 0);
+                return astString;
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             System.err.println("Error generating AST:");
             e.printStackTrace();
         }
+        return null;
     }
 
     private static Path copyLibrary(Path tempDir, String libraryName) throws IOException {
         Path libraryPath = tempDir.resolve(libraryName);
-        try (InputStream is = TreeSitterUtil.class.getResourceAsStream("/native/windows/" + libraryName)) {
+        try (InputStream is = TreeSitterUtil.class.getResourceAsStream("/native/macos/" + libraryName)) {
             if (is == null) {
                 throw new RuntimeException("Could not find " + libraryName + " in resources");
             }
@@ -74,25 +78,5 @@ public class TreeSitterUtil {
         return filePath.substring(filePath.lastIndexOf(".") + 1);
     }
 
-    private static void printASTWithCursor(Node rootNode) {
-        try (TreeCursor cursor = rootNode.walk()) {
-            printNodeWithCursor(cursor, 0);
-        }
-    }
 
-    private static void printNodeWithCursor(TreeCursor cursor, int depth) {
-        String indent = "  ".repeat(depth);
-        String nodeType = cursor.getCurrentNode().getType();
-        String fieldName = cursor.getCurrentFieldName();
-        String fieldInfo = fieldName != null ? " (" + fieldName + ")" : "";
-
-        System.out.printf("%s%s%s\n", indent, nodeType, fieldInfo);
-
-        if (cursor.gotoFirstChild()) {
-            do {
-                printNodeWithCursor(cursor, depth + 1);
-            } while (cursor.gotoNextSibling());
-            cursor.gotoParent();
-        }
-    }
 }
