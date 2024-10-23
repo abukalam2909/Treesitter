@@ -10,7 +10,7 @@ import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 
 public class GithubUtil {
 
-	private GithubUtil() {}
+	public GithubUtil() {}
 
 	/**
 	 * Downloads the specified repository into a Temp directory.

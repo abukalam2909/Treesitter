@@ -5,17 +5,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.Repository;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import ca.dal.treefactor.API.GitHistoryTreefactor;
 import ca.dal.treefactor.API.GitService;
+import ca.dal.treefactor.github.GithubUtil;
 import ca.dal.treefactor.util.GitHistoryTreefactorImpl;
 import ca.dal.treefactor.util.GitServiceImpl;
 
 @SpringBootApplication
 public class TreefactorApplication {
+
 	public static void main(String[] args) throws Exception{
 		SpringApplication.run(TreefactorApplication.class, args);
 		if (args.length < 1) {
@@ -111,15 +114,23 @@ public class TreefactorApplication {
 		}
 	}
 
+	static GithubUtil gutil = new GithubUtil();
+
 	private static void handleGitHubCommit(String[] args) throws Exception {
-		int maxArgLength = setupJsonOutput(args, 4);
+		int maxArgLength = setupJsonOutput(args, 5);
 		if (args.length != maxArgLength) {
 			throw new ArgumentException("Invalid number of arguments for -gc option.");
 		}
 		String gitURL = args[1];
-		String commitId = args[2];
-		int timeout = Integer.parseInt(args[3]);
-		Path jsonFilePath = JsonFilePath(maxArgLength, 4, args);
+		String token = args[2];
+		String commitId = args[3];
+		int timeout = Integer.parseInt(args[4]);
+		Path jsonFilePath = JsonFilePath(maxArgLength, 5, args);
+		Git gitHubRepo = gutil.getRepositoryPat(gitURL, token);
+		try (Repository repo = gitHubRepo.getRepository()){
+			GitHistoryTreefactor detector = new GitHistoryTreefactorImpl();
+			detector.detectAtCommit(repo,commitId);
+		}
 	}
 
 	private static void handleGitHubPullRequest(String[] args) throws Exception {
@@ -168,7 +179,7 @@ public class TreefactorApplication {
 		System.out.println(
 				"\n-c <git-repo-folder> <commit-sha1> -json <path-to-json-file>\t\t\t\tDetect refactorings at specified commit <commit-sha1> for project <git-repo-folder>");
 		System.out.println(
-				"\n-gc <git-URL> <commit-sha1> <timeout> -json <path-to-json-file>\t\t\t\tDetect refactorings at specified commit <commit-sha1> for project <git-URL> within the given <timeout> in seconds. All required information is obtained directly from GitHub using the OAuth token in github-oauth.properties");
+				"\n-gc <git-URL> <token> <commit-sha1> <timeout> -json <path-to-json-file>\t\t\t\tDetect refactorings at specified commit <commit-sha1> for project <git-URL> within the given <timeout> in seconds. All required information is obtained directly from GitHub using the OAuth token in github-oauth.properties");
 		System.out.println(
 				"\n-gp <git-URL> <pull-request> <timeout> -json <path-to-json-file>\t\t\t\tDetect refactorings at specified pull request <pull-request> for project <git-URL> within the given <timeout> in seconds for each commit in the pull request. All required information is obtained directly from GitHub using the OAuth token in github-oauth.properties");
 	}
