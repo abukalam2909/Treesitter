@@ -14,21 +14,24 @@ public class TreeSitterUtil {
 
     public static Language loadLanguageForFileExtension(String filePath) throws IOException {
         String extension = getFileExtension(filePath).toLowerCase();
+        String libExtension = OSUtil.getLibExtension();
+        String osFolder = OSUtil.getOSFolder();
+
         Path tempDir = Files.createTempDirectory("tree-sitter-lib");
         Path libPath;
         Language language;
 
         switch (extension) {
             case "cpp":
-                libPath = copyLibrary(tempDir, "libtree-sitter-cpp.dylib"); //dll
+                libPath = copyLibrary(tempDir, "libtree-sitter-cpp" + libExtension, osFolder);
                 language = loadLanguage(libPath, "tree_sitter_cpp");
                 break;
             case "js":
-                libPath = copyLibrary(tempDir, "libtree-sitter-javascript.dylib");
+                libPath = copyLibrary(tempDir, "libtree-sitter-javascript" + libExtension, osFolder);
                 language = loadLanguage(libPath, "tree_sitter_javascript");
                 break;
             case "py":
-                libPath = copyLibrary(tempDir, "libtree-sitter-python.dylib");
+                libPath = copyLibrary(tempDir, "libtree-sitter-python" + libExtension, osFolder);
                 language = loadLanguage(libPath, "tree_sitter_python");
                 break;
             default:
@@ -58,11 +61,11 @@ public class TreeSitterUtil {
         return null;
     }
 
-    private static Path copyLibrary(Path tempDir, String libraryName) throws IOException {
+    private static Path copyLibrary(Path tempDir, String libraryName, String osFolder) throws IOException {
         Path libraryPath = tempDir.resolve(libraryName);
-        try (InputStream is = TreeSitterUtil.class.getResourceAsStream("/native/macos/" + libraryName)) {
+        try (InputStream is = TreeSitterUtil.class.getResourceAsStream("/native/" + osFolder + "/" + libraryName)) {
             if (is == null) {
-                throw new RuntimeException("Could not find " + libraryName + " in resources");
+                throw new RuntimeException("Could not find " + libraryName + " in resources for " + osFolder);
             }
             Files.copy(is, libraryPath, StandardCopyOption.REPLACE_EXISTING);
         }
