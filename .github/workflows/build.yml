@@ -9,19 +9,71 @@ on:
 jobs:
   build:
     runs-on: self-hosted
+
     steps:
       - name: Check out code
         uses: actions/checkout@v2
-        
+
       - name: Set up JDK 22
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '22'
 
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential gcc
+
+      - name: Clone and build Tree-Sitter core library
+        run: |
+          if [ ! -d "tree-sitter" ]; then
+            git clone https://github.com/tree-sitter/tree-sitter.git
+            cd tree-sitter
+            make
+            cp libtree-sitter.so $GITHUB_WORKSPACE/  # Copy to project root
+          else
+            echo "Tree-Sitter core library already cloned."
+          fi
+
+      - name: Clone and build Tree-Sitter Python parser
+        run: |
+          if [ ! -d "tree-sitter-python" ]; then
+            git clone https://github.com/tree-sitter/tree-sitter-python.git
+            cd tree-sitter-python
+            cc -c -I./src src/parser.c
+            cc -shared -I./src src/parser.c src/scanner.c -o libtree-sitter-python.so
+            mkdir -p $GITHUB_WORKSPACE/src/main/resources/native/linux
+            cp libtree-sitter-python.so $GITHUB_WORKSPACE/src/main/resources/native/linux/
+          else
+            echo "Tree-Sitter Python parser already cloned."
+          fi
+
+      - name: Clone and build Tree-Sitter C++ parser
+        run: |
+          if [ ! -d "tree-sitter-cpp" ]; then
+            git clone https://github.com/tree-sitter/tree-sitter-cpp.git
+            cd tree-sitter-cpp
+            cc -c -I./src src/parser.c
+            cc -shared -I./src src/parser.c src/scanner.c -o libtree-sitter-cpp.so
+            cp libtree-sitter-cpp.so $GITHUB_WORKSPACE/src/main/resources/native/linux/
+          else
+            echo "Tree-Sitter C++ parser already cloned."
+          fi
+
+      - name: Clone and build Tree-Sitter JavaScript parser
+        run: |
+          if [ ! -d "tree-sitter-javascript" ]; then
+            git clone https://github.com/tree-sitter/tree-sitter-javascript.git
+            cd tree-sitter-javascript
+            cc -c -I./src src/parser.c
+            cc -shared -I./src src/parser.c src/scanner.c -o libtree-sitter-javascript.so
+            cp libtree-sitter-javascript.so $GITHUB_WORKSPACE/src/main/resources/native/linux/
+          else
+            echo "Tree-Sitter JavaScript parser already cloned."
+          fi
+
       - name: Build with Maven
         run: mvn clean package
-   
+
       - name: Move JAR to deployment directory
         run: |
           mkdir -p $HOME/Treefactor
