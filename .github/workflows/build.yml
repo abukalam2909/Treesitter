@@ -21,11 +21,9 @@ jobs:
 
       - name: Build with Maven
         run: mvn clean package
+   
+      - name: Move JAR to deployment directory
+        run: |
+          mkdir -p /Treefactor
+          cp target/Treefactor-0.0.1-SNAPSHOT.jar /Treefactor
 
-  # Optional: Run the built application directly after building
-  run:
-    needs: build  # This job runs after 'build' job finishes
-    runs-on: self-hosted  # Still runs on your VM
-    steps:
-      - name: Run Application
-        run: java -jar target/Treefactor-0.0.1-SNAPSHOT.jar
