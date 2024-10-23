@@ -1,0 +1,31 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - dev  # Triggers the action on push to main or dev branches
+
+jobs:
+  build:
+    runs-on: self-hosted
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+        
+      - name: Set up JDK 22
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '22'
+
+      - name: Build with Maven
+        run: mvn clean package
+
+  # Optional: Run the built application directly after building
+  run:
+    needs: build  # This job runs after 'build' job finishes
+    runs-on: self-hosted  # Still runs on your VM
+    steps:
+      - name: Run Application
+        run: java -jar target/Treefactor-0.0.1-SNAPSHOT.jar
