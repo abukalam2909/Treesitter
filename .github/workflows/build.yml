@@ -24,6 +24,6 @@ jobs:
    
       - name: Move JAR to deployment directory
         run: |
-          mkdir -p /Treefactor
-          cp target/Treefactor-0.0.1-SNAPSHOT.jar /Treefactor
+          mkdir -p $HOME/Treefactor
+          cp target/Treefactor-0.0.1-SNAPSHOT.jar $HOME/Treefactor
 
