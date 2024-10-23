@@ -20,8 +20,8 @@ jobs:
           distribution: 'temurin'
           java-version: '22'
 
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential gcc
+#      - name: Install dependencies
+#        run: sudo apt-get update && sudo apt-get install -y build-essential gcc
 
       - name: Clone and build Tree-Sitter core library
         run: |
