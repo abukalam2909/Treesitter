@@ -16,7 +16,7 @@ public class TestingController {
 
 	@PostMapping("/github/clone")
 	public void cloneRepo(@RequestBody GithubCloneBody body) throws IOException, GitAPIException {
-		GithubUtil.getRepositoryPat(body.getRepoName(), body.getToken());
+//		GithubUtil.getRepositoryPat(body.getRepoName(), body.getToken());
 	}
 
 }
