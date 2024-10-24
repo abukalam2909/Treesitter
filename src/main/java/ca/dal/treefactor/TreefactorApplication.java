@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.Repository;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -117,21 +118,29 @@ public class TreefactorApplication {
 	static GithubUtil gutil = new GithubUtil();
 
 	private static void handleGitHubCommit(String[] args) throws Exception {
-		int maxArgLength = setupJsonOutput(args, 5);
+		int maxArgLength = setupJsonOutput(args, 4);
+		Git gitHubRepo=null;
 		if (args.length != maxArgLength) {
 			throw new ArgumentException("Invalid number of arguments for -gc option.");
 		}
 		String gitURL = args[1];
-		String token = args[2];
-		String commitId = args[3];
-		int timeout = Integer.parseInt(args[4]);
-		Path jsonFilePath = JsonFilePath(maxArgLength, 5, args);
-		Git gitHubRepo = gutil.getRepositoryPat(gitURL, token);
+		String commitId = args[2];
+		int timeout = Integer.parseInt(args[3]);
+		Path jsonFilePath = JsonFilePath(maxArgLength, 4, args);
+		try {
+			 gitHubRepo = gutil.getRepositoryPat(gitURL);
+		} catch (GitAPIException ex) {
+			System.err.println("Failed to clone repository. Please ensure that the PAT and commit ID are correct.");
+			ex.printStackTrace();
+			return ;
+		}
 		try (Repository repo = gitHubRepo.getRepository()){
 			GitHistoryTreefactor detector = new GitHistoryTreefactorImpl();
 			detector.detectAtCommit(repo,commitId);
 		}
 	}
+
+
 
 	private static void handleGitHubPullRequest(String[] args) throws Exception {
 		int maxArgLength = setupJsonOutput(args, 4);
