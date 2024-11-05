@@ -1,0 +1,17 @@
+// src/main/java/ca/dal/treefactor/model/CodeElementType.java
+package ca.dal.treefactor.model;
+
+public enum CodeElementType {
+    CLASS_DECLARATION,
+    METHOD_DECLARATION,
+    FIELD_DECLARATION,
+    CONSTRUCTOR_DECLARATION,
+    ENUM_DECLARATION,
+    INTERFACE_DECLARATION,
+    PARAMETER_DECLARATION,
+    VARIABLE_DECLARATION,
+    COMMENT,
+    IMPORT_DECLARATION,
+    PACKAGE_DECLARATION,
+    ANNOTATION_TYPE_DECLARATION
+}
