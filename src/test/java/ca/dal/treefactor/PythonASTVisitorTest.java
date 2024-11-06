@@ -165,14 +165,6 @@ public class PythonASTVisitorTest {
 
             processCode(code);
 
-            // Print AST for debugging
-            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
-                Node rootNode = tree.getRootNode();
-                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
-                System.out.println("AST Structure:");
-                System.out.println(ASTUtil.printAST(astNode, 0));
-            }
-
             UMLClass counter = model.getClasses().get(0);
             List<UMLAttribute> attributes = counter.getAttributes();
 
@@ -216,6 +208,13 @@ public class PythonASTVisitorTest {
         void testSimpleImport() throws Exception {
             String code = "import datetime";
 
+            // Print AST for debugging
+            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
+                Node rootNode = tree.getRootNode();
+                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
+                System.out.println("AST Structure:");
+                System.out.println(ASTUtil.printAST(astNode, 0));
+            }
             processCode(code);
 
             List<UMLImport> imports = model.getImports(TEST_FILE);
@@ -228,6 +227,13 @@ public class PythonASTVisitorTest {
         void testFromImport() throws Exception {
             String code = "from os.path import join, dirname";
 
+            // Print AST for debugging
+            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
+                Node rootNode = tree.getRootNode();
+                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
+                System.out.println("AST Structure:");
+                System.out.println(ASTUtil.printAST(astNode, 0));
+            }
             processCode(code);
 
             List<UMLImport> imports = model.getImports(TEST_FILE);
@@ -236,6 +242,146 @@ public class PythonASTVisitorTest {
                     i.getImportedName().equals("os.path.join")));
             assertTrue(imports.stream().anyMatch(i ->
                     i.getImportedName().equals("os.path.dirname")));
+        }
+    }
+
+    @Nested
+    class ParameterTests {
+        @Test
+        void testMultipleParameters() throws Exception {
+            String code = """
+            def calculate(x, y, z):
+                return x + y + z
+            """;
+
+            processCode(code);
+
+            UMLOperation op = model.getOperations().get(0);
+            assertEquals(3, op.getParameters().size(), "Should have three parameters");
+            assertEquals("x", op.getParameters().get(0).getName());
+            assertEquals("y", op.getParameters().get(1).getName());
+            assertEquals("z", op.getParameters().get(2).getName());
+        }
+
+        @Test
+        void testParameterWithDefaultValue() throws Exception {
+            String code = """
+            def greet(name="World"):
+                print(f"Hello, {name}!")
+            """;
+
+            processCode(code);
+
+            UMLOperation op = model.getOperations().get(0);
+            UMLParameter param = op.getParameters().get(0);
+            assertEquals("name", param.getName());
+            assertEquals("\"World\"", param.getDefaultValue());
+        }
+
+        @Test
+        void testTypedParameterWithDefault() throws Exception {
+            String code = """
+            def greet(name: str = "World", count: int = 1):
+                print(f"Hello, {name}!" * count)
+            """;
+
+            processCode(code);
+
+            UMLOperation op = model.getOperations().get(0);
+            List<UMLParameter> params = op.getParameters();
+
+            assertEquals(2, params.size());
+
+            assertEquals("name", params.get(0).getName());
+            assertEquals("str", params.get(0).getType().getTypeName());
+            assertEquals("\"World\"", params.get(0).getDefaultValue());
+
+            assertEquals("count", params.get(1).getName());
+            assertEquals("int", params.get(1).getType().getTypeName());
+            assertEquals("1", params.get(1).getDefaultValue());
+        }
+
+        @Test
+        void testMixedTypedAndUntypedParameters() throws Exception {
+            String code = """
+            def process(data: list, count, name: str = "test"):
+                pass
+            """;
+
+            processCode(code);
+
+            UMLOperation op = model.getOperations().get(0);
+            List<UMLParameter> params = op.getParameters();
+
+            assertEquals(3, params.size(), "Should have three parameters");
+            assertEquals("list", params.get(0).getType().getTypeName());
+            assertEquals("object", params.get(1).getType().getTypeName());
+            assertEquals("str", params.get(2).getType().getTypeName());
+            assertEquals("\"test\"", params.get(2).getDefaultValue());
+        }
+
+        @Test
+        void testMethodParameters() throws Exception {
+            String code = """
+            class Calculator:
+                def add(self, x: int, y: int) -> int:
+                    return x + y
+            """;
+
+            processCode(code);
+
+            UMLClass calc = model.getClasses().get(0);
+            UMLOperation add = calc.getOperations().get(0);
+            List<UMLParameter> params = add.getParameters();
+
+            assertEquals(3, params.size(), "Should include self and two parameters");
+            assertEquals("self", params.get(0).getName());
+            assertEquals("int", params.get(1).getType().getTypeName());
+            assertEquals("int", params.get(2).getType().getTypeName());
+        }
+
+        @Test
+        void testComplexParameterTypes() throws Exception {
+            String code = """
+            def process_data(items: List[str], 
+                           config: Dict[str, Any] = None) -> Optional[List[int]]:
+                pass
+            """;
+
+            // Print AST for debugging
+            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
+                Node rootNode = tree.getRootNode();
+                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
+                System.out.println("AST Structure:");
+                System.out.println(ASTUtil.printAST(astNode, 0));
+            }
+
+            processCode(code);
+
+            UMLOperation op = model.getOperations().get(0);
+            List<UMLParameter> params = op.getParameters();
+
+            assertEquals("List[str]", params.get(0).getType().getTypeName());
+            assertEquals("Dict[str, Any]", params.get(1).getType().getTypeName());
+            assertEquals("None", params.get(1).getDefaultValue());
+        }
+
+        @Test
+        void testKeywordOnlyParameters() throws Exception {
+            String code = """
+            def configure(*, host: str, port: int = 8080):
+                pass
+            """;
+
+            processCode(code);
+
+            UMLOperation op = model.getOperations().get(0);
+            List<UMLParameter> params = op.getParameters();
+
+            assertEquals(2, params.size());
+            //assertTrue(params.get(0).isKeywordOnly());
+            //assertTrue(params.get(1).isKeywordOnly());
+            assertEquals("8080", params.get(1).getDefaultValue());
         }
     }
 
