@@ -61,6 +61,13 @@ public class PythonASTVisitorTest {
 
             processCode(code);
 
+            // Add debug info
+            System.out.println("Number of operations: " + model.getOperations().size());
+            model.getOperations().forEach(op ->
+                    System.out.println("Operation: " + op.getName()));
+
+            assertFalse(model.getOperations().isEmpty(), "Should have at least one operation");
+
             UMLOperation greet = model.getOperations().get(0);
             UMLParameter param = greet.getParameters().get(0);
 
@@ -138,6 +145,7 @@ public class PythonASTVisitorTest {
 
             processCode(code);
 
+
             UMLClass person = model.getClasses().get(0);
             assertTrue(person.hasAnnotations(), "Should have annotations");
             assertEquals("dataclass", person.getAnnotations().get(0).getName(),
@@ -156,6 +164,14 @@ public class PythonASTVisitorTest {
                 """;
 
             processCode(code);
+
+            // Print AST for debugging
+            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
+                Node rootNode = tree.getRootNode();
+                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
+                System.out.println("AST Structure:");
+                System.out.println(ASTUtil.printAST(astNode, 0));
+            }
 
             UMLClass counter = model.getClasses().get(0);
             List<UMLAttribute> attributes = counter.getAttributes();
