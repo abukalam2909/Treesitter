@@ -266,13 +266,14 @@ public class PythonASTVisitorTest {
         @Test
         void testParameterWithDefaultValue() throws Exception {
             String code = """
-            def greet(name="World"):
+            def greet(name = "World"):
                 print(f"Hello, {name}!")
             """;
 
             processCode(code);
 
             UMLOperation op = model.getOperations().get(0);
+            //System.out.println(model.)
             UMLParameter param = op.getParameters().get(0);
             assertEquals("name", param.getName());
             assertEquals("\"World\"", param.getDefaultValue());
@@ -372,6 +373,13 @@ public class PythonASTVisitorTest {
             def configure(*, host: str, port: int = 8080):
                 pass
             """;
+            // Print AST for debugging
+            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
+                Node rootNode = tree.getRootNode();
+                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
+                System.out.println("AST Structure:");
+                System.out.println(ASTUtil.printAST(astNode, 0));
+            }
 
             processCode(code);
 
@@ -379,9 +387,54 @@ public class PythonASTVisitorTest {
             List<UMLParameter> params = op.getParameters();
 
             assertEquals(2, params.size());
-            //assertTrue(params.get(0).isKeywordOnly());
-            //assertTrue(params.get(1).isKeywordOnly());
+            assertTrue(params.get(0).isKeywordOnly());
+            assertTrue(params.get(1).isKeywordOnly());
             assertEquals("8080", params.get(1).getDefaultValue());
+        }
+
+        @Test
+        void testMixedParameters() throws Exception {
+            String code = """
+            def process(arg1, arg2, *, kw1: str, kw2: int = 42):
+                pass
+            """;
+
+            // Print AST for debugging
+            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
+                Node rootNode = tree.getRootNode();
+                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
+                System.out.println("AST Structure:");
+                System.out.println(ASTUtil.printAST(astNode, 0));
+            }
+            processCode(code);
+
+            UMLOperation op = model.getOperations().get(0);
+            List<UMLParameter> params = op.getParameters();
+
+            assertEquals(4, params.size(), "Should have four parameters");
+
+            // Regular parameters
+            assertFalse(params.get(0).isKeywordOnly(), "arg1 should not be keyword-only");
+            assertFalse(params.get(1).isKeywordOnly(), "arg2 should not be keyword-only");
+
+            // Keyword-only parameters
+            assertTrue(params.get(2).isKeywordOnly(), "kw1 should be keyword-only");
+            assertTrue(params.get(3).isKeywordOnly(), "kw2 should be keyword-only");
+            assertEquals("42", params.get(3).getDefaultValue(), "kw2 should have default value");
+        }
+
+        @Test
+        void testOnlySeparator() throws Exception {
+            String code = """
+            def func(*):
+                pass
+            """;
+
+            processCode(code);
+
+            UMLOperation op = model.getOperations().get(0);
+            assertTrue(op.getParameters().isEmpty(),
+                    "Should have no parameters with only separator");
         }
     }
 
