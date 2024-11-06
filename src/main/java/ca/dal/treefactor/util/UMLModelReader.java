@@ -1,19 +1,41 @@
 package ca.dal.treefactor.util;
 
 import ca.dal.treefactor.model.UMLModel;
-
-
 import io.github.treesitter.jtreesitter.*;
+import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.HashMap;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 public class UMLModelReader {
-    private UMLModel umlModel;
+    private static final Logger LOGGER = Logger.getLogger(UMLModelReader.class.getName());
+    private final UMLModel umlModel;
+    private static final String PYTHON_EXT = "py";
+    private static final String CPP_EXT = "cpp";
+    private static final String JS_EXT = "js";
 
     public UMLModelReader(Map<String, String> fileContents, Set<String> repositoryDirectories) {
-        this.umlModel = new UMLModel(repositoryDirectories);
+        // Initialize UMLModel with language detection
+        String primaryLanguage = detectPrimaryLanguage(fileContents);
+        this.umlModel = new UMLModel(repositoryDirectories, primaryLanguage);
         processFileContents(fileContents);
+    }
+
+    private String detectPrimaryLanguage(Map<String, String> fileContents) {
+        // Simple language detection based on file extensions
+        Map<String, Integer> langCount = new HashMap<>();
+
+        for (String filePath : fileContents.keySet()) {
+            String ext = getFileExtension(filePath);
+            langCount.merge(ext, 1, Integer::sum);
+        }
+
+        return langCount.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(entry -> mapExtensionToLanguage(entry.getKey()))
+                .orElse("unknown");
     }
 
     private void processFileContents(Map<String, String> fileContents) {
@@ -22,16 +44,12 @@ public class UMLModelReader {
             String content = entry.getValue();
 
             try {
-                // Use your existing TreeSitterUtil to get language and generate AST
                 Language language = TreeSitterUtil.loadLanguageForFileExtension(filePath);
-                String astString = TreeSitterUtil.generateAST(language, content);
-
-                // Process the AST using appropriate visitor based on file type
                 processAST(filePath, content, language);
-
+            } catch (IOException e) {
+                LOGGER.log(Level.SEVERE, "Error loading language for file: " + filePath, e);
             } catch (Exception e) {
-                System.err.println("Error processing file: " + filePath);
-                e.printStackTrace();
+                LOGGER.log(Level.SEVERE, "Error processing file: " + filePath, e);
             }
         }
     }
@@ -43,29 +61,40 @@ public class UMLModelReader {
                 Node rootNode = tree.getRootNode();
                 ASTUtil.ASTNode astRoot = ASTUtil.buildASTWithCursor(rootNode);
 
-                // Create and use appropriate visitor based on file extension
                 ASTVisitor visitor = createVisitor(filePath, content);
                 if (visitor != null) {
                     visitor.visit(astRoot);
+                } else {
+                    LOGGER.warning("Unsupported file type: " + filePath);
                 }
             }
         }
     }
 
     private ASTVisitor createVisitor(String filePath, String content) {
-        String extension = filePath.substring(filePath.lastIndexOf('.') + 1).toLowerCase();
-        switch (extension) {
-            case "py":
-                return new PythonASTVisitor(umlModel, content, filePath);
-            // case "cpp":
-            //     return new CPPASTVisitor(umlModel);
-            // case "js":
-            //     return new JavaScriptASTVisitor(umlModel);
-            default:
-                return null;
-        }
+        String extension = getFileExtension(filePath);
+
+        return switch (extension) {
+            case PYTHON_EXT -> new PythonASTVisitor(umlModel, content, filePath);
+            case CPP_EXT -> throw new UnsupportedOperationException("C++ support not yet implemented");
+            case JS_EXT -> throw new UnsupportedOperationException("JavaScript support not yet implemented");
+            default -> null;
+        };
     }
 
+    private String getFileExtension(String filePath) {
+        int lastDot = filePath.lastIndexOf('.');
+        return lastDot > 0 ? filePath.substring(lastDot + 1).toLowerCase() : "";
+    }
+
+    private String mapExtensionToLanguage(String extension) {
+        return switch (extension) {
+            case PYTHON_EXT -> "python";
+            case CPP_EXT -> "cpp";
+            case JS_EXT -> "javascript";
+            default -> "unknown";
+        };
+    }
 
     public UMLModel getUmlModel() {
         return this.umlModel;

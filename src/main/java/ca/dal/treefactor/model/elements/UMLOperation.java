@@ -4,25 +4,33 @@ import ca.dal.treefactor.model.core.*;
 import java.util.*;
 
 public class UMLOperation {
+    // Core attributes
     private final String name;
     private final LocationInfo locationInfo;
-    private final List<UMLParameter> parameters;
-    private final List<UMLComment> comments;
-    private final List<UMLAnnotation> annotations;
-    private final List<UMLType> thrownExceptions;
-    private UMLType returnType;
-    private String className; // The class this operation belongs to
+    private String className;  // Optional: for methods belonging to classes
 
-    // Operation properties
+    // Type information
+    private UMLType returnType;
+    private final List<UMLParameter> parameters;
+
+    // Documentation and metadata
+    private final List<UMLComment> comments;
+    private final List<UMLAnnotation> annotations;  // For decorators/attributes
+
+    // Modifiers
     private Visibility visibility;
-    private boolean isAbstract;
     private boolean isStatic;
+    private boolean isAbstract;
     private boolean isFinal;
     private boolean isConstructor;
-    private boolean isSynchronized;
-    private boolean isNative;
-    private boolean isDefault;
-    private String body; // The operation's body/implementation
+    private boolean isDestructor;  // For C++
+    private boolean isAsync;       // For JavaScript/Python
+    private boolean isGenerator;   // For JavaScript/Python
+    private boolean isVirtual;     // For C++
+    private boolean isConst;       // For C++
+
+    // Method body
+    private String body;
 
     public UMLOperation(String name, LocationInfo locationInfo) {
         this.name = name;
@@ -30,8 +38,7 @@ public class UMLOperation {
         this.parameters = new ArrayList<>();
         this.comments = new ArrayList<>();
         this.annotations = new ArrayList<>();
-        this.thrownExceptions = new ArrayList<>();
-        this.visibility = Visibility.DEFAULT;
+        this.visibility = Visibility.PUBLIC;  // Default visibility
     }
 
     // Parameter management
@@ -47,16 +54,13 @@ public class UMLOperation {
         return new ArrayList<>(parameters);
     }
 
-    public UMLParameter getParameter(String parameterName) {
-        for (UMLParameter parameter : parameters) {
-            if (parameter.getName().equals(parameterName)) {
-                return parameter;
-            }
-        }
-        return null;
+    public Optional<UMLParameter> getParameter(String paramName) {
+        return parameters.stream()
+                .filter(p -> p.getName().equals(paramName))
+                .findFirst();
     }
 
-    // Comment management
+    // Documentation management
     public void addComment(UMLComment comment) {
         if (!comments.contains(comment)) {
             comments.add(comment);
@@ -71,7 +75,7 @@ public class UMLOperation {
         return new ArrayList<>(comments);
     }
 
-    // Annotation management
+    // Annotation/Decorator management
     public void addAnnotation(UMLAnnotation annotation) {
         if (!annotations.contains(annotation)) {
             annotations.add(annotation);
@@ -86,22 +90,12 @@ public class UMLOperation {
         return new ArrayList<>(annotations);
     }
 
-    // Exception management
-    public void addThrownException(UMLType exceptionType) {
-        if (!thrownExceptions.contains(exceptionType)) {
-            thrownExceptions.add(exceptionType);
-        }
+    public boolean hasAnnotation(String annotationName) {
+        return annotations.stream()
+                .anyMatch(a -> a.getName().equals(annotationName));
     }
 
-    public void removeThrownException(UMLType exceptionType) {
-        thrownExceptions.remove(exceptionType);
-    }
-
-    public List<UMLType> getThrownExceptions() {
-        return new ArrayList<>(thrownExceptions);
-    }
-
-    // Basic getters and setters
+    // Getters and setters
     public String getName() {
         return name;
     }
@@ -134,7 +128,7 @@ public class UMLOperation {
         this.body = body;
     }
 
-    // Modifiers getters and setters
+    // Modifier getters and setters
     public Visibility getVisibility() {
         return visibility;
     }
@@ -143,20 +137,20 @@ public class UMLOperation {
         this.visibility = visibility;
     }
 
-    public boolean isAbstract() {
-        return isAbstract;
-    }
-
-    public void setAbstract(boolean isAbstract) {
-        this.isAbstract = isAbstract;
-    }
-
     public boolean isStatic() {
         return isStatic;
     }
 
     public void setStatic(boolean isStatic) {
         this.isStatic = isStatic;
+    }
+
+    public boolean isAbstract() {
+        return isAbstract;
+    }
+
+    public void setAbstract(boolean isAbstract) {
+        this.isAbstract = isAbstract;
     }
 
     public boolean isFinal() {
@@ -175,35 +169,63 @@ public class UMLOperation {
         this.isConstructor = isConstructor;
     }
 
-    public boolean isSynchronized() {
-        return isSynchronized;
+    public boolean isDestructor() {
+        return isDestructor;
     }
 
-    public void setSynchronized(boolean isSynchronized) {
-        this.isSynchronized = isSynchronized;
+    public void setDestructor(boolean isDestructor) {
+        this.isDestructor = isDestructor;
     }
 
-    public boolean isNative() {
-        return isNative;
+    public boolean isAsync() {
+        return isAsync;
     }
 
-    public void setNative(boolean isNative) {
-        this.isNative = isNative;
+    public void setAsync(boolean isAsync) {
+        this.isAsync = isAsync;
     }
 
-    public boolean isDefault() {
-        return isDefault;
+    public boolean isGenerator() {
+        return isGenerator;
     }
 
-    public void setDefault(boolean isDefault) {
-        this.isDefault = isDefault;
+    public void setGenerator(boolean isGenerator) {
+        this.isGenerator = isGenerator;
+    }
+
+    public boolean isVirtual() {
+        return isVirtual;
+    }
+
+    public void setVirtual(boolean isVirtual) {
+        this.isVirtual = isVirtual;
+    }
+
+    public boolean isConst() {
+        return isConst;
+    }
+
+    public void setConst(boolean isConst) {
+        this.isConst = isConst;
     }
 
     // Utility methods
+    public boolean isInstanceMethod() {
+        return !isStatic && className != null;
+    }
+
+    public boolean isClassMethod() {
+        return isStatic && className != null;
+    }
+
+    public boolean isStandaloneFunction() {
+        return className == null;
+    }
+
     public String getSignature() {
         StringBuilder sb = new StringBuilder();
 
-        // Add annotations
+        // Add annotations/decorators
         for (UMLAnnotation annotation : annotations) {
             sb.append(annotation.toString()).append("\n");
         }
@@ -213,13 +235,12 @@ public class UMLOperation {
             sb.append(visibility.toString().toLowerCase()).append(" ");
         }
         if (isStatic) sb.append("static ");
-        if (isFinal) sb.append("final ");
         if (isAbstract) sb.append("abstract ");
-        if (isSynchronized) sb.append("synchronized ");
-        if (isNative) sb.append("native ");
-        if (isDefault) sb.append("default ");
+        if (isFinal) sb.append("final ");
+        if (isVirtual) sb.append("virtual ");
+        if (isAsync) sb.append("async ");
 
-        // Add return type for non-constructors
+        // Add return type if not constructor
         if (!isConstructor && returnType != null) {
             sb.append(returnType.toString()).append(" ");
         }
@@ -232,28 +253,10 @@ public class UMLOperation {
         }
         sb.append(")");
 
-        // Add thrown exceptions
-        if (!thrownExceptions.isEmpty()) {
-            sb.append(" throws ");
-            for (int i = 0; i < thrownExceptions.size(); i++) {
-                if (i > 0) sb.append(", ");
-                sb.append(thrownExceptions.get(i).toString());
-            }
-        }
+        // Add const qualifier for C++
+        if (isConst) sb.append(" const");
 
         return sb.toString();
-    }
-
-    public boolean hasParameters() {
-        return !parameters.isEmpty();
-    }
-
-    public boolean hasAnnotations() {
-        return !annotations.isEmpty();
-    }
-
-    public boolean throwsExceptions() {
-        return !thrownExceptions.isEmpty();
     }
 
     @Override
@@ -266,11 +269,11 @@ public class UMLOperation {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        UMLOperation operation = (UMLOperation) o;
-        return Objects.equals(name, operation.name) &&
-                Objects.equals(className, operation.className) &&
-                Objects.equals(parameters, operation.parameters) &&
-                Objects.equals(locationInfo, operation.locationInfo);
+        UMLOperation that = (UMLOperation) o;
+        return Objects.equals(name, that.name) &&
+                Objects.equals(className, that.className) &&
+                Objects.equals(parameters, that.parameters) &&
+                Objects.equals(locationInfo, that.locationInfo);
     }
 
     @Override
@@ -278,23 +281,20 @@ public class UMLOperation {
         return Objects.hash(name, className, parameters, locationInfo);
     }
 
-    // Builder pattern for fluent API
+    // Builder pattern for easier construction
     public static class Builder {
         private final String name;
         private final LocationInfo locationInfo;
+        private String className;
+        private UMLType returnType;
         private final List<UMLParameter> parameters = new ArrayList<>();
         private final List<UMLAnnotation> annotations = new ArrayList<>();
-        private final List<UMLType> thrownExceptions = new ArrayList<>();
-        private UMLType returnType;
-        private String className;
-        private Visibility visibility = Visibility.DEFAULT;
-        private boolean isAbstract;
+        private Visibility visibility = Visibility.PUBLIC;
         private boolean isStatic;
+        private boolean isAbstract;
         private boolean isFinal;
         private boolean isConstructor;
-        private boolean isSynchronized;
-        private boolean isNative;
-        private boolean isDefault;
+        private boolean isAsync;
         private String body;
 
         public Builder(String name, LocationInfo locationInfo) {
@@ -302,18 +302,8 @@ public class UMLOperation {
             this.locationInfo = locationInfo;
         }
 
-        public Builder addParameter(UMLParameter parameter) {
-            parameters.add(parameter);
-            return this;
-        }
-
-        public Builder addAnnotation(UMLAnnotation annotation) {
-            annotations.add(annotation);
-            return this;
-        }
-
-        public Builder addThrownException(UMLType exceptionType) {
-            thrownExceptions.add(exceptionType);
+        public Builder className(String className) {
+            this.className = className;
             return this;
         }
 
@@ -322,8 +312,13 @@ public class UMLOperation {
             return this;
         }
 
-        public Builder className(String className) {
-            this.className = className;
+        public Builder addParameter(UMLParameter parameter) {
+            this.parameters.add(parameter);
+            return this;
+        }
+
+        public Builder addAnnotation(UMLAnnotation annotation) {
+            this.annotations.add(annotation);
             return this;
         }
 
@@ -332,13 +327,13 @@ public class UMLOperation {
             return this;
         }
 
-        public Builder setAbstract(boolean isAbstract) {
-            this.isAbstract = isAbstract;
+        public Builder setStatic(boolean isStatic) {
+            this.isStatic = isStatic;
             return this;
         }
 
-        public Builder setStatic(boolean isStatic) {
-            this.isStatic = isStatic;
+        public Builder setAbstract(boolean isAbstract) {
+            this.isAbstract = isAbstract;
             return this;
         }
 
@@ -352,18 +347,8 @@ public class UMLOperation {
             return this;
         }
 
-        public Builder setSynchronized(boolean isSynchronized) {
-            this.isSynchronized = isSynchronized;
-            return this;
-        }
-
-        public Builder setNative(boolean isNative) {
-            this.isNative = isNative;
-            return this;
-        }
-
-        public Builder setDefault(boolean isDefault) {
-            this.isDefault = isDefault;
+        public Builder setAsync(boolean isAsync) {
+            this.isAsync = isAsync;
             return this;
         }
 
@@ -374,22 +359,17 @@ public class UMLOperation {
 
         public UMLOperation build() {
             UMLOperation operation = new UMLOperation(name, locationInfo);
-            operation.setReturnType(returnType);
             operation.setClassName(className);
-            operation.setVisibility(visibility);
-            operation.setAbstract(isAbstract);
-            operation.setStatic(isStatic);
-            operation.setFinal(isFinal);
-            operation.setConstructor(isConstructor);
-            operation.setSynchronized(isSynchronized);
-            operation.setNative(isNative);
-            operation.setDefault(isDefault);
-            operation.setBody(body);
-
+            operation.setReturnType(returnType);
             parameters.forEach(operation::addParameter);
             annotations.forEach(operation::addAnnotation);
-            thrownExceptions.forEach(operation::addThrownException);
-
+            operation.setVisibility(visibility);
+            operation.setStatic(isStatic);
+            operation.setAbstract(isAbstract);
+            operation.setFinal(isFinal);
+            operation.setConstructor(isConstructor);
+            operation.setAsync(isAsync);
+            operation.setBody(body);
             return operation;
         }
     }

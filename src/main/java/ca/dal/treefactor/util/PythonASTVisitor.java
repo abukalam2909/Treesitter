@@ -127,6 +127,7 @@ public class PythonASTVisitor extends ASTVisitor {
 
         System.out.println("Finished processing class: " + className);
     }
+
     @Override
     protected void processMethod(ASTUtil.ASTNode node) {
         String functionName = extractFunctionName(node);
@@ -280,18 +281,7 @@ public class PythonASTVisitor extends ASTVisitor {
         System.out.println("Current class attributes: " +
                 (currentClass != null ? currentClass.getAttributes().size() : "no class"));
     }
-    // Helper methods
-    private boolean isInMethod() {
-        // Check if we're currently processing within a method
-        return currentScope.stream().anyMatch(scope ->
-                scope.startsWith("def "));
-    }
 
-    private boolean isInInitMethod() {
-        // Check if we're in the __init__ method
-        return currentScope.stream().anyMatch(scope ->
-                scope.equals("def __init__"));
-    }
     @Override
     protected void processImport(ASTUtil.ASTNode node) {
         ASTUtil.ASTNode nameNode = findChildByType(node, "dotted_name");
@@ -317,10 +307,13 @@ public class PythonASTVisitor extends ASTVisitor {
     }
 
     private void processFromImport(ASTUtil.ASTNode node) {
-        ASTUtil.ASTNode moduleNode = findChildByType(node, "dotted_name");
+        // Get the module name (os.path)
+        ASTUtil.ASTNode moduleNode = findChildByFieldName(node, "module_name");
         if (moduleNode == null) return;
 
         String moduleName = moduleNode.getText(sourceCode);
+        System.out.println("Module name: " + moduleName);
+
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
                 node.startPoint,
@@ -328,29 +321,38 @@ public class PythonASTVisitor extends ASTVisitor {
                 CodeElementType.IMPORT_DECLARATION
         );
 
-        // Process imported names
-        ASTUtil.ASTNode namesNode = findChildByType(node, "import_from_names");
-        if (namesNode != null) {
-            for (ASTUtil.ASTNode nameNode : namesNode.children) {
-                if (nameNode.type.equals("dotted_name")) {
-                    String importedName = nameNode.getText(sourceCode);
-                    String fullName = moduleName + "." + importedName;
+        // Process each imported name
+        for (ASTUtil.ASTNode child : node.children) {
+            if (child.fieldName != null && child.fieldName.equals("name")) {
+                String importedName = child.getText(sourceCode);
+                System.out.println("Importing: " + importedName);
 
-                    // Check for 'as' alias
-                    String alias = extractAlias(nameNode);
+                // Construct full import name (e.g., "os.path.join")
+                String fullName = moduleName + "." + importedName;
 
-                    UMLImport umlImport = UMLImport.builder(fullName, locationInfo)
-                            .type(UMLImport.ImportType.SINGLE)
-                            .alias(alias)
-                            .build();
+                UMLImport umlImport = UMLImport.builder(fullName, locationInfo)
+                        .type(UMLImport.ImportType.SINGLE)
+                        .build();
 
-                    model.addImport(filePath, umlImport);
-                }
+                model.addImport(filePath, umlImport);
+                System.out.println("Added import: " + fullName);
             }
         }
     }
 
     // Helper methods
+    private boolean isInMethod() {
+        // Check if we're currently processing within a method
+        return currentScope.stream().anyMatch(scope ->
+                scope.startsWith("def "));
+    }
+
+    private boolean isInInitMethod() {
+        // Check if we're in the __init__ method
+        return currentScope.stream().anyMatch(scope ->
+                scope.equals("def __init__"));
+    }
+
     private String extractModuleName(String filePath) {
         // Convert file path to Python module notation
         return filePath.replace("/", ".")
@@ -385,21 +387,24 @@ public class PythonASTVisitor extends ASTVisitor {
         ASTUtil.ASTNode parameters = findChildByType(node, "parameters");
         if (parameters == null) return;
 
+        //System.out.println("Processing parameters for method: " + builder.getName());
         for (ASTUtil.ASTNode param : parameters.children) {
-            if (param.type.equals("typed_parameter")) {
-                // Handle typed parameters
-                ASTUtil.ASTNode nameNode = findChildByType(param, "identifier");
-                ASTUtil.ASTNode typeNode = findChildByType(param, "type");
+            System.out.println("Parameter node type: " + param.type);
+
+            if (param.type.equals("typed_default_parameter")) {
+                // Handle parameters with both type and default value
+                ASTUtil.ASTNode nameNode = findChildByFieldName(param, "name");
+                ASTUtil.ASTNode typeNode = findChildByFieldName(param, "type");
+                ASTUtil.ASTNode valueNode = findChildByFieldName(param, "value");
 
                 if (nameNode != null) {
                     String paramName = nameNode.getText(sourceCode);
                     UMLType paramType = new UMLType("object"); // Default type
 
+                    // Process type if present
                     if (typeNode != null) {
-                        ASTUtil.ASTNode typeIdentifier = findChildByType(typeNode, "identifier");
-                        if (typeIdentifier != null) {
-                            paramType = new UMLType(typeIdentifier.getText(sourceCode));
-                        }
+                        String typeName = processGenericType(typeNode);
+                        paramType = new UMLType(typeName);
                     }
 
                     LocationInfo paramLocation = new LocationInfo(
@@ -409,13 +414,77 @@ public class PythonASTVisitor extends ASTVisitor {
                             CodeElementType.PARAMETER_DECLARATION
                     );
 
-                    builder.addParameter(new UMLParameter(paramName, paramType, paramLocation));
-                }
-            } else if (param.type.equals("identifier")) {
-                // Handle untyped parameters
-                String paramName = param.getText(sourceCode);
-                UMLType paramType = new UMLType("object"); // Default type for untyped parameters
+                    UMLParameter parameter = new UMLParameter(paramName, paramType, paramLocation);
 
+                    // Process default value if present
+                    if (valueNode != null) {
+                        parameter.setDefaultValue(valueNode.getText(sourceCode));
+                        System.out.println("Set default value: " + valueNode.getText(sourceCode));
+                    }
+
+                    builder.addParameter(parameter);
+                    System.out.println("Added typed parameter with default: " + paramName +
+                            " type: " + paramType.getTypeName());
+                }
+            }
+            else if (param.type.equals("typed_parameter")) {
+                // Handle typed parameters
+                ASTUtil.ASTNode nameNode = findChildByType(param, "identifier");
+                ASTUtil.ASTNode typeNode = findChildByType(param, "type");
+
+                if (nameNode != null) {
+                    String paramName = nameNode.getText(sourceCode);
+                    UMLType paramType = new UMLType("object"); // Default type
+
+                    if (typeNode != null) {
+                        String typeName = processGenericType(typeNode);
+                        paramType = new UMLType(typeName);
+                    }
+
+                    LocationInfo paramLocation = new LocationInfo(
+                            filePath,
+                            param.startPoint,
+                            param.endPoint,
+                            CodeElementType.PARAMETER_DECLARATION
+                    );
+
+                    UMLParameter parameter = new UMLParameter(paramName, paramType, paramLocation);
+                    builder.addParameter(parameter);
+                    System.out.println("Added typed parameter: " + paramName + " with type: " + paramType.getTypeName());
+                }
+            }
+            else if (param.type.equals("default_parameter")) {
+                // Handle parameters with default values
+                ASTUtil.ASTNode nameNode = findChildByFieldName(param, "name");
+                ASTUtil.ASTNode valueNode = findChildByFieldName(param, "value");
+
+                if (nameNode != null) {
+                    String paramName = nameNode.getText(sourceCode);
+                    LocationInfo paramLocation = new LocationInfo(
+                            filePath,
+                            param.startPoint,
+                            param.endPoint,
+                            CodeElementType.PARAMETER_DECLARATION
+                    );
+
+                    UMLParameter parameter = new UMLParameter(
+                            paramName,
+                            new UMLType("object"),
+                            paramLocation
+                    );
+
+                    if (valueNode != null) {
+                        parameter.setDefaultValue(valueNode.getText(sourceCode));
+                        System.out.println("Set default value: " + valueNode.getText(sourceCode));
+                    }
+
+                    builder.addParameter(parameter);
+                    System.out.println("Added parameter with default: " + paramName);
+                }
+            }
+            else if (param.type.equals("identifier")) {
+                // Handle simple parameters without type or default value
+                String paramName = param.getText(sourceCode);
                 LocationInfo paramLocation = new LocationInfo(
                         filePath,
                         param.startPoint,
@@ -423,53 +492,95 @@ public class PythonASTVisitor extends ASTVisitor {
                         CodeElementType.PARAMETER_DECLARATION
                 );
 
-                builder.addParameter(new UMLParameter(paramName, paramType, paramLocation));
+                UMLParameter parameter = new UMLParameter(
+                        paramName,
+                        new UMLType("object"),
+                        paramLocation
+                );
+
+                builder.addParameter(parameter);
+                System.out.println("Added simple parameter: " + paramName);
             }
         }
     }
 
     private void processReturnType(ASTUtil.ASTNode node, UMLOperation.Builder builder) {
-        System.out.println("in processReturnType()"); // Debug output
+        System.out.println("in processReturnType()");
 
         ASTUtil.ASTNode returnType = findChildByFieldName(node, "return_type");
         if (returnType != null) {
-            System.out.println("return type != null"); // Debug output
-
-            ASTUtil.ASTNode typeIdentifier = findChildByType(returnType, "identifier");
-            if (typeIdentifier != null) {
-                String returnTypeStr = typeIdentifier.getText(sourceCode);
-                System.out.println("Found return type: " + returnTypeStr); // Debug output
-                builder.returnType(new UMLType(returnTypeStr));
-            } else {
-                builder.returnType(new UMLType("None")); // Default Python return type
-            }
+            System.out.println("return type != null");
+            String typeName = processGenericType(returnType);
+            builder.returnType(new UMLType(typeName));
         } else {
             builder.returnType(new UMLType("None")); // Default Python return type
         }
     }
 
-    private List<ASTUtil.ASTNode> findDecorators(ASTUtil.ASTNode node) {
-        List<ASTUtil.ASTNode> decorators = new ArrayList<>();
+    private String processGenericType(ASTUtil.ASTNode typeNode) {
+        if (typeNode == null) return "object";
 
-        // If this is a decorated_definition, get decorators directly
-        if (node.type.equals("decorated_definition")) {
-            for (ASTUtil.ASTNode child : node.children) {
-                if (child.type.equals("decorator")) {
-                    decorators.add(child);
-                }
+        System.out.println("Processing type node: " + typeNode.type);
+
+        // Get the generic_type node
+        ASTUtil.ASTNode genericNode = findChildByType(typeNode, "generic_type");
+        if (genericNode != null) {
+            StringBuilder sb = new StringBuilder();
+
+            // Get base type name (List, Dict, etc)
+            ASTUtil.ASTNode baseType = findChildByType(genericNode, "identifier");
+            if (baseType != null) {
+                sb.append(baseType.getText(sourceCode));
             }
-        } else {
-            // If this is a class_definition, check if parent is decorated_definition
-            ASTUtil.ASTNode parent = node.parent;
-            if (parent != null && parent.type.equals("decorated_definition")) {
-                for (ASTUtil.ASTNode child : parent.children) {
-                    if (child.type.equals("decorator")) {
-                        decorators.add(child);
+
+            // Find all type parameters
+            List<String> typeParams = new ArrayList<>();
+            for (ASTUtil.ASTNode child : genericNode.children) {
+                if (child.type.equals("type_parameter")) {
+                    System.out.println("Processing type parameter node, child count: " + child.children.size());
+
+                    // Collect all type nodes within this type_parameter
+                    for (ASTUtil.ASTNode paramChild : child.children) {
+                        if (paramChild.type.equals("type")) {
+                            // Check if inner type is another generic type
+                            ASTUtil.ASTNode innerGeneric = findChildByType(paramChild, "generic_type");
+                            if (innerGeneric != null) {
+                                // Recursively process nested generic type
+                                typeParams.add(processGenericType(paramChild));
+                            } else {
+                                // Simple type
+                                ASTUtil.ASTNode innerIdentifier = findChildByType(paramChild, "identifier");
+                                if (innerIdentifier != null) {
+                                    typeParams.add(innerIdentifier.getText(sourceCode));
+                                }
+                            }
+                        }
                     }
                 }
             }
+
+            // Add all type parameters in brackets
+            if (!typeParams.isEmpty()) {
+                sb.append("[");
+                sb.append(String.join(", ", typeParams));
+                sb.append("]");
+            }
+
+            // Debug output
+            System.out.println("Found generic type with base: " +
+                    (baseType != null ? baseType.getText(sourceCode) : "null"));
+            System.out.println("Type parameters found: " + typeParams);
+
+            String result = sb.toString();
+            System.out.println("Generated type: " + result);
+            return result;
+        } else {
+            // For simple types
+            ASTUtil.ASTNode identifier = findChildByType(typeNode, "identifier");
+            String result = identifier != null ? identifier.getText(sourceCode) : "object";
+            System.out.println("Simple type: " + result);
+            return result;
         }
-        return decorators;
     }
 
     private void processDecorators(List<ASTUtil.ASTNode> decorators, Object target) {
@@ -499,6 +610,7 @@ public class PythonASTVisitor extends ASTVisitor {
             }
         }
     }
+
     private void processInheritance(ASTUtil.ASTNode node, UMLClass umlClass) {
         ASTUtil.ASTNode argList = findChildByType(node, "argument_list");
         if (argList == null) return;

@@ -4,20 +4,27 @@ import ca.dal.treefactor.model.core.*;
 import java.util.*;
 
 public class UMLAttribute {
+    // Core attributes
     private final String name;
-    private final UMLType type;
     private final LocationInfo locationInfo;
+    private UMLType type;
+    private String className;  // The class this attribute belongs to
+
+    // Documentation and metadata
     private final List<UMLComment> comments;
     private final List<UMLAnnotation> annotations;
 
-    private String className; // The class this attribute belongs to
+    // Modifiers
     private Visibility visibility;
     private boolean isStatic;
     private boolean isFinal;
-    private boolean isVolatile;
-    private boolean isTransient;
-    private boolean isReadOnly;  // For languages with readonly/const properties
-    private String initialValue; // Initial value if present
+    private boolean isVolatile;  // For Java/C++
+    private boolean isTransient; // For Java
+    private boolean isConst;     // For C++
+    private boolean isReadOnly;  // For TypeScript/C#
+
+    // Value
+    private String initialValue;
 
     public UMLAttribute(String name, UMLType type, LocationInfo locationInfo) {
         this.name = name;
@@ -58,20 +65,23 @@ public class UMLAttribute {
         return new ArrayList<>(annotations);
     }
 
-    // Basic getters
+    // Basic getters and setters
     public String getName() {
         return name;
-    }
-
-    public UMLType getType() {
-        return type;
     }
 
     public LocationInfo getLocationInfo() {
         return locationInfo;
     }
 
-    // Class association
+    public UMLType getType() {
+        return type;
+    }
+
+    public void setType(UMLType type) {
+        this.type = type;
+    }
+
     public String getClassName() {
         return className;
     }
@@ -80,7 +90,7 @@ public class UMLAttribute {
         this.className = className;
     }
 
-    // Modifiers getters and setters
+    // Modifier getters and setters
     public Visibility getVisibility() {
         return visibility;
     }
@@ -121,6 +131,14 @@ public class UMLAttribute {
         this.isTransient = isTransient;
     }
 
+    public boolean isConst() {
+        return isConst;
+    }
+
+    public void setConst(boolean isConst) {
+        this.isConst = isConst;
+    }
+
     public boolean isReadOnly() {
         return isReadOnly;
     }
@@ -150,10 +168,7 @@ public class UMLAttribute {
         return !comments.isEmpty();
     }
 
-    /**
-     * Returns the attribute's declaration as it would appear in code
-     */
-    public String getDeclaration() {
+    public String getSignature() {
         StringBuilder sb = new StringBuilder();
 
         // Add annotations
@@ -169,7 +184,8 @@ public class UMLAttribute {
         if (isFinal) sb.append("final ");
         if (isVolatile) sb.append("volatile ");
         if (isTransient) sb.append("transient ");
-        if (isReadOnly) sb.append("readonly "); // language specific
+        if (isConst) sb.append("const ");
+        if (isReadOnly) sb.append("readonly ");
 
         // Add type and name
         sb.append(type.toString()).append(" ").append(name);
@@ -184,7 +200,7 @@ public class UMLAttribute {
 
     @Override
     public String toString() {
-        return getDeclaration();
+        return getSignature();
     }
 
     @Override
@@ -204,18 +220,18 @@ public class UMLAttribute {
         return Objects.hash(name, className, type, locationInfo);
     }
 
-    // Builder pattern for fluent API
+    // Builder pattern
     public static class Builder {
         private final String name;
         private final UMLType type;
         private final LocationInfo locationInfo;
-        private final List<UMLAnnotation> annotations = new ArrayList<>();
         private String className;
         private Visibility visibility = Visibility.DEFAULT;
         private boolean isStatic;
         private boolean isFinal;
         private boolean isVolatile;
         private boolean isTransient;
+        private boolean isConst;
         private boolean isReadOnly;
         private String initialValue;
 
@@ -227,11 +243,6 @@ public class UMLAttribute {
 
         public Builder className(String className) {
             this.className = className;
-            return this;
-        }
-
-        public Builder addAnnotation(UMLAnnotation annotation) {
-            annotations.add(annotation);
             return this;
         }
 
@@ -260,6 +271,11 @@ public class UMLAttribute {
             return this;
         }
 
+        public Builder setConst(boolean isConst) {
+            this.isConst = isConst;
+            return this;
+        }
+
         public Builder setReadOnly(boolean isReadOnly) {
             this.isReadOnly = isReadOnly;
             return this;
@@ -278,9 +294,9 @@ public class UMLAttribute {
             attribute.setFinal(isFinal);
             attribute.setVolatile(isVolatile);
             attribute.setTransient(isTransient);
+            attribute.setConst(isConst);
             attribute.setReadOnly(isReadOnly);
             attribute.setInitialValue(initialValue);
-            annotations.forEach(attribute::addAnnotation);
             return attribute;
         }
     }
