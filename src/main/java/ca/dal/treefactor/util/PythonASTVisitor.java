@@ -387,9 +387,18 @@ public class PythonASTVisitor extends ASTVisitor {
         ASTUtil.ASTNode parameters = findChildByType(node, "parameters");
         if (parameters == null) return;
 
-        //System.out.println("Processing parameters for method: " + builder.getName());
+        // Flag to track if we've seen a keyword separator
+        boolean keywordOnlyMode = false;
+
         for (ASTUtil.ASTNode param : parameters.children) {
             System.out.println("Parameter node type: " + param.type);
+
+            // Check for keyword separator (*)
+            if (param.type.equals("keyword_separator")) {
+                System.out.println("Found keyword separator");
+                keywordOnlyMode = true;
+                continue;
+            }
 
             if (param.type.equals("typed_default_parameter")) {
                 // Handle parameters with both type and default value
@@ -401,7 +410,6 @@ public class PythonASTVisitor extends ASTVisitor {
                     String paramName = nameNode.getText(sourceCode);
                     UMLType paramType = new UMLType("object"); // Default type
 
-                    // Process type if present
                     if (typeNode != null) {
                         String typeName = processGenericType(typeNode);
                         paramType = new UMLType(typeName);
@@ -416,15 +424,15 @@ public class PythonASTVisitor extends ASTVisitor {
 
                     UMLParameter parameter = new UMLParameter(paramName, paramType, paramLocation);
 
-                    // Process default value if present
                     if (valueNode != null) {
                         parameter.setDefaultValue(valueNode.getText(sourceCode));
                         System.out.println("Set default value: " + valueNode.getText(sourceCode));
                     }
-
+                    parameter.setKeywordOnly(keywordOnlyMode);  // Set keyword-only flag
                     builder.addParameter(parameter);
                     System.out.println("Added typed parameter with default: " + paramName +
-                            " type: " + paramType.getTypeName());
+                            " type: " + paramType.getTypeName() +
+                            (keywordOnlyMode ? " (keyword-only)" : ""));
                 }
             }
             else if (param.type.equals("typed_parameter")) {
@@ -449,8 +457,12 @@ public class PythonASTVisitor extends ASTVisitor {
                     );
 
                     UMLParameter parameter = new UMLParameter(paramName, paramType, paramLocation);
+                    parameter.setKeywordOnly(keywordOnlyMode);  // Set keyword-only flag
+
                     builder.addParameter(parameter);
-                    System.out.println("Added typed parameter: " + paramName + " with type: " + paramType.getTypeName());
+                    System.out.println("Added typed parameter: " + paramName +
+                            " with type: " + paramType.getTypeName() +
+                            (keywordOnlyMode ? " (keyword-only)" : ""));
                 }
             }
             else if (param.type.equals("default_parameter")) {
@@ -478,6 +490,7 @@ public class PythonASTVisitor extends ASTVisitor {
                         System.out.println("Set default value: " + valueNode.getText(sourceCode));
                     }
 
+                    parameter.setKeywordOnly(keywordOnlyMode);  // Set keyword-only flag
                     builder.addParameter(parameter);
                     System.out.println("Added parameter with default: " + paramName);
                 }
@@ -497,13 +510,14 @@ public class PythonASTVisitor extends ASTVisitor {
                         new UMLType("object"),
                         paramLocation
                 );
+                parameter.setKeywordOnly(keywordOnlyMode);  // Set keyword-only flag
 
                 builder.addParameter(parameter);
-                System.out.println("Added simple parameter: " + paramName);
+                System.out.println("Added simple parameter: " + paramName +
+                        (keywordOnlyMode ? " (keyword-only)" : ""));
             }
         }
     }
-
     private void processReturnType(ASTUtil.ASTNode node, UMLOperation.Builder builder) {
         System.out.println("in processReturnType()");
 

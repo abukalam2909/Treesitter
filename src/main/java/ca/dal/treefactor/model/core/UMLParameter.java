@@ -14,6 +14,7 @@ public class UMLParameter {
     private boolean isFinal;
     private boolean isDefaultValuePresent;
     private String defaultValue;
+    private boolean isKeywordOnly;  // Add this field
 
     public UMLParameter(String name, UMLType type, LocationInfo locationInfo) {
         this.name = name;
@@ -21,6 +22,7 @@ public class UMLParameter {
         this.locationInfo = locationInfo;
         this.annotations = new ArrayList<>();
         this.kind = "in"; // default to "in" parameter
+        this.isKeywordOnly = false; // default to false
     }
 
     // Annotation management
@@ -91,6 +93,15 @@ public class UMLParameter {
     public void setDefaultValue(String defaultValue) {
         this.defaultValue = defaultValue;
         this.isDefaultValuePresent = defaultValue != null;
+    }
+
+    // Add getter and setter for isKeywordOnly
+    public boolean isKeywordOnly() {
+        return isKeywordOnly;
+    }
+
+    public void setKeywordOnly(boolean keywordOnly) {
+        this.isKeywordOnly = keywordOnly;
     }
 
     // Utility methods
@@ -164,6 +175,7 @@ public class UMLParameter {
         private boolean isVarargs;
         private boolean isFinal;
         private String defaultValue;
+        private boolean isKeywordOnly;  // Add this field
 
         public Builder(String name, UMLType type, LocationInfo locationInfo) {
             this.name = name;
@@ -196,11 +208,18 @@ public class UMLParameter {
             return this;
         }
 
+        // Add builder method for keyword-only parameter
+        public Builder setKeywordOnly(boolean keywordOnly) {
+            this.isKeywordOnly = keywordOnly;
+            return this;
+        }
+
         public UMLParameter build() {
             UMLParameter parameter = new UMLParameter(name, type, locationInfo);
             parameter.setKind(kind);
             parameter.setVarargs(isVarargs);
             parameter.setFinal(isFinal);
+            parameter.setKeywordOnly(isKeywordOnly);  // Set keyword-only property
             if (defaultValue != null) {
                 parameter.setDefaultValue(defaultValue);
             }
