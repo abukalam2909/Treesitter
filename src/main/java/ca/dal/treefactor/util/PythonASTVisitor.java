@@ -63,10 +63,25 @@ public class PythonASTVisitor extends ASTVisitor {
 
     @Override
     protected void processClass(ASTUtil.ASTNode node) {
-        System.out.println("Processing class node");
+        System.out.println("Processing class node: " + node.type);
 
-        ASTUtil.ASTNode classNode = node.type.equals("decorated_definition") ?
-                findChildByType(node, "class_definition") : node;
+        // Find the actual class definition node
+        ASTUtil.ASTNode classNode;
+        List<ASTUtil.ASTNode> decorators = new ArrayList<>();
+
+        if (node.type.equals("decorated_definition")) {
+            System.out.println("Found decorated definition");
+            // Get decorators directly from decorated_definition
+            for (ASTUtil.ASTNode child : node.children) {
+                if (child.type.equals("decorator")) {
+                    decorators.add(child);
+                }
+            }
+            classNode = findChildByType(node, "class_definition");
+        } else {
+            classNode = node;
+        }
+
         if (classNode == null) return;
 
         String className = extractClassName(classNode);
@@ -84,9 +99,10 @@ public class PythonASTVisitor extends ASTVisitor {
         UMLClass previousClass = currentClass;
         currentClass = new UMLClass(extractModuleName(filePath), className, locationInfo);
 
-        // Process decorators if present
-        if (node.type.equals("decorated_definition")) {
-            processDecorators(findDecorators(node), currentClass);
+        // Process decorators if any were found
+        if (!decorators.isEmpty()) {
+            System.out.println("Processing " + decorators.size() + " decorators");
+            processDecorators(decorators, currentClass);
         }
 
         // Process inheritance
@@ -111,7 +127,6 @@ public class PythonASTVisitor extends ASTVisitor {
 
         System.out.println("Finished processing class: " + className);
     }
-
     @Override
     protected void processMethod(ASTUtil.ASTNode node) {
         String functionName = extractFunctionName(node);
@@ -370,6 +385,7 @@ public class PythonASTVisitor extends ASTVisitor {
             }
         }
     }
+
     private void processReturnType(ASTUtil.ASTNode node, UMLOperation.Builder builder) {
         System.out.println("in processReturnType()"); // Debug output
 
@@ -417,6 +433,7 @@ public class PythonASTVisitor extends ASTVisitor {
     private void processDecorators(List<ASTUtil.ASTNode> decorators, Object target) {
         System.out.println("Processing " + decorators.size() + " decorators");
         for (ASTUtil.ASTNode decorator : decorators) {
+            // Get the identifier from the decorator
             ASTUtil.ASTNode identifierNode = findChildByType(decorator, "identifier");
             if (identifierNode != null) {
                 String decoratorName = identifierNode.getText(sourceCode);
@@ -433,7 +450,7 @@ public class PythonASTVisitor extends ASTVisitor {
 
                 if (target instanceof UMLClass) {
                     ((UMLClass) target).addAnnotation(annotation);
-                    System.out.println("Added annotation to class: " + annotation.getName());
+                    System.out.println("Added annotation to class: " + decoratorName);
                 } else if (target instanceof UMLOperation.Builder) {
                     ((UMLOperation.Builder) target).addAnnotation(annotation);
                 }
