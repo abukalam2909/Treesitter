@@ -6,7 +6,6 @@ import ca.dal.treefactor.model.elements.UMLOperation;
 import ca.dal.treefactor.model.elements.UMLClass;
 import ca.dal.treefactor.model.elements.UMLAttribute;
 import ca.dal.treefactor.model.core.*;
-import io.github.treesitter.jtreesitter.*;
 
 import java.util.ArrayList;
 import java.util.List;
