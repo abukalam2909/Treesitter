@@ -148,9 +148,10 @@ public class PythonRenameParameterTest {
     public void RenameParameterTwoParams() {
         Map<String, String> fileContentsBefore = new HashMap<>();
         String fileContentsBeforeString = """
-                def calculator(n: int = 4):
-                	return n + 5
-            """;
+                def fullname(fname, lname):
+                	return fname + lname
+                fullname("amy", "doe")
+        """;
         fileContentsBefore.put("example.py", fileContentsBeforeString);
         UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
         UMLModel parentUMLModel = parentUmlReader.getUmlModel();
@@ -158,9 +159,10 @@ public class PythonRenameParameterTest {
 
         Map<String, String> fileContentsAfter = new HashMap<>();
         String fileContentsAfterString = """
-                def calculator(num: int = 5):
-                	return num + 5
-                """;
+               def fullname(firstname, lastname):
+                	return firstname + lastname
+               fullname("amy", "doe")
+        """;
         fileContentsAfter.put("example.py", fileContentsAfterString);
         UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
         UMLModel currentUMLModel = currentUmlReader.getUmlModel();
@@ -169,11 +171,18 @@ public class PythonRenameParameterTest {
         List<Refactoring> refactorings = modelDiff.detectRefactorings();
 
         // Verify refactoring detection
-        assertEquals(1, refactorings.size());
+        // first parameter
+        assertEquals(2, refactorings.size());
         assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
 
-        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
-        assertEquals("n", rename.getOriginalParameter().getName());
-        assertEquals("num", rename.getRenamedParameter().getName());
+        RenameParameterRefactoring rename1 = (RenameParameterRefactoring) refactorings.get(0);
+        assertEquals("fname", rename1.getOriginalParameter().getName());
+        assertEquals("firstname", rename1.getRenamedParameter().getName());
+
+        // second parameter
+        assertTrue(refactorings.get(1) instanceof RenameParameterRefactoring);
+        RenameParameterRefactoring rename2 = (RenameParameterRefactoring) refactorings.get(1);
+        assertEquals("lname", rename2.getOriginalParameter().getName());
+        assertEquals("lastname", rename2.getRenamedParameter().getName());
     }
 }
