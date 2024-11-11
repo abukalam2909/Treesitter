@@ -1,5 +1,6 @@
 package ca.dal.treefactor;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,14 +37,6 @@ public class TreefactorApplication {
 				handleAllCommits(args);
 				break;
 			}
-			case "-bc": {
-				handleBetweenCommits(args);
-				break;
-			}
-			case "-bt": {
-				handleBetweenTags(args);
-				break;
-			}
 			case "-c": {
 				handleCommit(args);
 				break;
@@ -52,14 +45,16 @@ public class TreefactorApplication {
 				handleGitHubCommit(args);
 				break;
 			}
-			case "-gp": {
-				handleGitHubPullRequest(args);
-				break;
-			}
 			default:
 				throw new ArgumentException("Invalid option: "+ option);
 		}
+
+		String mainFolderPath = "commit_contents";
+		File mainFolder = new File(mainFolderPath);
+		deleteDirectory(mainFolder);
+		System.exit(0);
 	}
+	static GithubUtil gutil = new GithubUtil();
 
 	private static void handleAllCommits(String[] args) throws Exception{
 		int maxArgLength = setupJsonOutput(args, 3);
@@ -78,28 +73,6 @@ public class TreefactorApplication {
 		}
 	}
 
-	private static void handleBetweenCommits(String[] args) throws Exception{
-		int maxArgLength = setupJsonOutput(args, 4);
-		if (!(args.length == maxArgLength-1 || args.length == maxArgLength)) {
-			throw new ArgumentException("Invalid number of arguments for -bc option.");
-		}
-		String repoFolder = args[1];
-		String startCommit = args[2];
-		String endCommit = (args.length >= 4 && !args[3].equals("-json")) ? args[3] : null;
-		Path jsonFilePath = JsonFilePath(maxArgLength, 4, args);
-	}
-
-	private static void handleBetweenTags(String[] args) throws Exception{
-		int maxArgLength = setupJsonOutput(args, 4);
-		if (!(args.length == maxArgLength-1 || args.length == maxArgLength)) {
-			throw new ArgumentException("Invalid number of arguments for -bt option.");
-		}
-		String repoFolder = args[1];
-		String startTag = args[2];
-		String endTag = (args.length >= 4 && !args[3].equals("-json")) ? args[3] : null;
-		Path jsonFilePath = JsonFilePath(maxArgLength, 4, args);
-	}
-
 	private static void handleCommit(String[] args) throws Exception {
 		int maxArgLength = setupJsonOutput(args, 3);
 		if (args.length != maxArgLength) {
@@ -114,8 +87,6 @@ public class TreefactorApplication {
 			detector.detectAtCommit(repo,commitId);
 		}
 	}
-
-	static GithubUtil gutil = new GithubUtil();
 
 	private static void handleGitHubCommit(String[] args) throws Exception {
 		int maxArgLength = setupJsonOutput(args, 4);
@@ -140,18 +111,6 @@ public class TreefactorApplication {
 		}
 	}
 
-
-
-	private static void handleGitHubPullRequest(String[] args) throws Exception {
-		int maxArgLength = setupJsonOutput(args, 4);
-		if (args.length != maxArgLength) {
-			throw new ArgumentException("Invalid number of arguments for -gp option.");
-		}
-		String gitURL = args[1];
-		int pullId = Integer.parseInt(args[2]);
-		int timeout = Integer.parseInt(args[3]);
-		Path jsonFilePath = JsonFilePath(maxArgLength, 4, args);
-	}
 
 	private static int setupJsonOutput(String[] args, int maxArgLength) {
 		if (args.length >= maxArgLength && args[args.length - 2].equals("-json")) {
@@ -192,6 +151,25 @@ public class TreefactorApplication {
 		System.out.println(
 				"\n-gp <git-URL> <pull-request> <timeout> -json <path-to-json-file>\t\t\t\tDetect refactorings at specified pull request <pull-request> for project <git-URL> within the given <timeout> in seconds for each commit in the pull request. All required information is obtained directly from GitHub using the OAuth token in github-oauth.properties");
 	}
+
+	// Delete a directory and its contents
+    private static void deleteDirectory(File directory) {
+        if (directory.exists()) {
+            // Delete all files and subdirectories within the directory
+            File[] files = directory.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isDirectory()) {
+                        deleteDirectory(file);  // Recursively delete subdirectories
+                    } else {
+                        file.delete();  // Delete files
+                    }
+                }
+            }
+            // Delete the empty directory
+            directory.delete();
+        }
+    }
 
 	private static class ArgumentException extends Exception {
 		public ArgumentException(String message) {
