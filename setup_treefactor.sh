@@ -67,11 +67,12 @@ cd tree-sitter
 # For Windows, use gcc directly
 if [ "$OSname" == "windows" ]; then
     gcc -o tree-sitter.dll -shared -I lib/src -I lib/include lib/src/lib.c
+    mv "tree-sitter.${EXT}" "$ROOT_DIR"
 else
     make  # Use make on Linux/macOS
+    mv "libtree-sitter.${EXT}" "$ROOT_DIR"
 fi
 
-mv "tree-sitter.${EXT}" "$ROOT_DIR"
 cd ..
 rm -rf tree-sitter
 echo "Core Tree-sitter setup complete!"
