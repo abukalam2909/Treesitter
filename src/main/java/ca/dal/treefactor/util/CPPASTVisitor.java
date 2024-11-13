@@ -29,19 +29,19 @@ public class CPPASTVisitor extends ASTVisitor {
             case "translation_unit":
                 processModule(node);
                 break;
-            case "namespace_definition":
-                processNamespace(node);
-                break;
             case "class_specifier":
                 processClass(node);
                 break;
             case "function_definition":
                 processMethod(node);
-                return; // Don't visit children - method handles its own body
+                return;
+            case "declaration":
+                processDeclaration(node);
+                return;
             case "field_declaration":
                 processField(node);
                 break;
-            case "include_directive":
+            case "preproc_include":
                 processImport(node);
                 break;
         }
@@ -49,6 +49,76 @@ public class CPPASTVisitor extends ASTVisitor {
         // Visit children
         for (ASTUtil.ASTNode child : node.children) {
             visit(child);
+        }
+    }
+
+    private void processDeclaration(ASTUtil.ASTNode node) {
+        // Get the full text of the declaration to check for virtual keyword
+        String fullText = node.getText(sourceCode);
+        System.out.println("Full declaration text: " + fullText);
+
+        boolean isVirtual = fullText.trim().startsWith("virtual");
+
+        ASTUtil.ASTNode initDeclarator = findChildByType(node, "init_declarator");
+        if (initDeclarator == null) return;
+
+        ASTUtil.ASTNode functionDeclarator = findChildByType(initDeclarator, "function_declarator");
+        if (functionDeclarator == null) return;
+
+        // Get method name
+        ASTUtil.ASTNode identifierNode = findChildByType(functionDeclarator, "identifier");
+        if (identifierNode == null) return;
+
+        String methodName = identifierNode.getText(sourceCode);
+        System.out.println("Found method declaration: " + methodName);
+        System.out.println("Is virtual: " + isVirtual);
+
+        LocationInfo locationInfo = new LocationInfo(
+                filePath,
+                node.startPoint,
+                node.endPoint,
+                CodeElementType.METHOD_DECLARATION
+        );
+
+        UMLOperation.Builder builder = UMLOperation.builder(methodName, locationInfo);
+
+        // Set virtual flag
+        builder.setVirtual(isVirtual);
+
+        // Process return type
+        ASTUtil.ASTNode returnTypeNode = findChildByType(node, "primitive_type");
+        if (returnTypeNode != null) {
+            builder.returnType(new UMLType(returnTypeNode.getText(sourceCode)));
+        } else {
+            builder.returnType(new UMLType("void")); // Default
+        }
+
+        // Check for pure virtual method (= 0)
+        ASTUtil.ASTNode numberLiteralNode = findChildByType(initDeclarator, "number_literal");
+        boolean isAbstract = false;
+        if (numberLiteralNode != null) {
+            String value = numberLiteralNode.getText(sourceCode);
+            System.out.println("Found number literal: " + value);
+            isAbstract = value.equals("0");
+        }
+
+        System.out.println("Setting abstract to: " + isAbstract);
+        builder.setAbstract(isAbstract);
+
+        // Process parameters
+        processParameters(node, builder);
+
+        // Build and add operation
+        UMLOperation operation = builder.build();
+        System.out.println("Built operation: " + operation.getName());
+        System.out.println("Virtual flag: " + operation.isVirtual());
+        System.out.println("Abstract flag: " + operation.isAbstract());
+
+        if (currentClass != null) {
+            operation.setClassName(currentClass.getName());
+            currentClass.addOperation(operation);
+        } else {
+            model.addOperation(operation);
         }
     }
 
@@ -84,10 +154,12 @@ public class CPPASTVisitor extends ASTVisitor {
 
     @Override
     protected void processClass(ASTUtil.ASTNode node) {
-        ASTUtil.ASTNode nameNode = findChildByType(node, "identifier");
+        System.out.println("Processing class: Start");
+        ASTUtil.ASTNode nameNode = findChildByType(node, "type_identifier");
         if (nameNode == null) return;
 
         String className = nameNode.getText(sourceCode);
+        System.out.println("Found class: " + className);
 
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
@@ -100,6 +172,7 @@ public class CPPASTVisitor extends ASTVisitor {
         String fullClassName = currentNamespace.isEmpty() ?
                 className : currentNamespace + "::" + className;
         currentClass = new UMLClass(extractModuleName(filePath), fullClassName, locationInfo);
+        System.out.println("Created UMLClass for: " + fullClassName);
 
         // Process inheritance
         processInheritance(node, currentClass);
@@ -108,21 +181,33 @@ public class CPPASTVisitor extends ASTVisitor {
         currentScope.add(className);
         ASTUtil.ASTNode body = findChildByType(node, "field_declaration_list");
         if (body != null) {
+            System.out.println("Processing class body for: " + className);
+            for (ASTUtil.ASTNode child : body.children) {
+                System.out.println("Processing child node type: " + child.type);
+            }
             processAccessSpecifiers(body);
+        } else {
+            System.out.println("No body found for class: " + className);
         }
         currentScope.remove(currentScope.size() - 1);
 
         // Finalize class processing
+        System.out.println("Adding class to model: " + fullClassName);
         model.addClass(currentClass);
+        System.out.println("Operations count: " + currentClass.getOperations().size());
         currentClass = previousClass;
+        System.out.println("Processing class: End");
     }
 
     private void processAccessSpecifiers(ASTUtil.ASTNode node) {
         Visibility currentVisibility = Visibility.PRIVATE;
 
         for (ASTUtil.ASTNode child : node.children) {
+            System.out.println("Processing node type in access specifiers: " + child.type);
+
             if (child.type.equals("access_specifier")) {
                 String specifier = child.getText(sourceCode);
+                System.out.println("Found access specifier: " + specifier);
                 switch (specifier.toLowerCase()) {
                     case "public":
                         currentVisibility = Visibility.PUBLIC;
@@ -135,15 +220,17 @@ public class CPPASTVisitor extends ASTVisitor {
                         break;
                 }
             } else {
-                // Process member with current visibility
-                visit(child);
-                if (currentClass != null) {
-                    Visibility finalCurrentVisibility = currentVisibility;
-                    currentClass.getOperations().forEach(op ->
-                            op.setVisibility(finalCurrentVisibility));
-                    Visibility finalCurrentVisibility1 = currentVisibility;
-                    currentClass.getAttributes().forEach(attr ->
-                            attr.setVisibility(finalCurrentVisibility1));
+                if (child.type.equals("function_definition")) {
+                    System.out.println("Processing function definition in access specifiers");
+                    processMethod(child);
+                    // Apply visibility after processing the method
+                    if (currentClass != null && !currentClass.getOperations().isEmpty()) {
+                        UMLOperation lastOperation = currentClass.getOperations().get(currentClass.getOperations().size() - 1);
+                        lastOperation.setVisibility(currentVisibility);
+                        System.out.println("Set visibility " + currentVisibility + " for method " + lastOperation.getName());
+                    }
+                } else {
+                    visit(child);
                 }
             }
         }
@@ -151,10 +238,42 @@ public class CPPASTVisitor extends ASTVisitor {
 
     @Override
     protected void processMethod(ASTUtil.ASTNode node) {
-        ASTUtil.ASTNode nameNode = findChildByType(node, "identifier");
-        if (nameNode == null) return;
+        System.out.println("process Method with node: " + getNodeText(node));
 
-        String methodName = nameNode.getText(sourceCode);
+        ASTUtil.ASTNode functionDeclarator = findChildByType(node, "function_declarator");
+        if (functionDeclarator == null) {
+            System.out.println("No function declarator found");
+            return;
+        }
+
+        // Try different paths to find the method name
+        String methodName = null;
+
+        // Try constructor (direct identifier)
+        methodName = getChildText(functionDeclarator, "identifier");
+        if (methodName != null) {
+            System.out.println("Found constructor name: " + methodName);
+        } else {
+            // Try regular method through declarator/field_identifier path
+            ASTUtil.ASTNode declarator = findChildByType(functionDeclarator, "declarator");
+            if (declarator != null) {
+                methodName = getChildText(declarator, "field_identifier");
+                System.out.println("Found method name through field_identifier: " + methodName);
+            }
+
+            // If still not found, check directly in function_declarator
+            if (methodName == null) {
+                methodName = getChildText(functionDeclarator, "field_identifier");
+                if (methodName != null) {
+                    System.out.println("Found method name directly in function_declarator: " + methodName);
+                }
+            }
+        }
+
+        if (methodName == null) {
+            System.out.println("Could not find method name in: " + getNodeText(functionDeclarator));
+            return;
+        }
 
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
@@ -165,8 +284,8 @@ public class CPPASTVisitor extends ASTVisitor {
 
         UMLOperation.Builder builder = UMLOperation.builder(methodName, locationInfo);
 
-        // Add method to scope before processing body
-        currentScope.add(methodName);
+        // Process method modifiers
+        processMethodModifiers(functionDeclarator, builder);
 
         // Process parameters
         processParameters(node, builder);
@@ -175,21 +294,53 @@ public class CPPASTVisitor extends ASTVisitor {
         processReturnType(node, builder);
 
         // Process method body
-        ASTUtil.ASTNode body = findChildByType(node, "compound_statement");
-        if (body != null) {
-            builder.body(body.getText(sourceCode));
+        if (hasType(findChildByType(node, "compound_statement"), "compound_statement")) {
+            builder.body(getChildText(node, "compound_statement"));
         }
 
         // Build and add operation
         UMLOperation operation = builder.build();
         if (currentClass != null) {
             operation.setClassName(currentClass.getName());
+            System.out.println("Adding method " + methodName + " to class " + currentClass.getName());
             currentClass.addOperation(operation);
+            System.out.println("Current operations in class: " + currentClass.getOperations().size());
         } else {
+            System.out.println("Adding standalone method " + methodName);
             model.addOperation(operation);
         }
+    }
+    private void processMethodModifiers(ASTUtil.ASTNode functionDeclarator, UMLOperation.Builder builder) {
+        // Get all type qualifiers
+        List<ASTUtil.ASTNode> typeQualifiers = findChildrenByType(functionDeclarator, "type_qualifier");
+        for (ASTUtil.ASTNode qualifier : typeQualifiers) {
+            String qualifierText = getNodeText(qualifier);
+            System.out.println("Found qualifier: " + qualifierText);
+            if ("const".equals(qualifierText)) {
+                builder.setConst(true);
+            }
+        }
 
-        currentScope.remove(currentScope.size() - 1);
+        // Check for noexcept
+        if (hasType(findChildByType(functionDeclarator, "noexcept"), "noexcept")) {
+            builder.setNoexcept(true);
+        }
+
+        // Check for inline
+        if (hasType(findChildByType(functionDeclarator, "inline"), "inline")) {
+            builder.setInline(true);
+        }
+    }
+
+
+    private void processReturnType(ASTUtil.ASTNode node, UMLOperation.Builder builder) {
+        // Try primitive_type first, then type_identifier
+        String returnType = getChildText(node, "primitive_type");
+        if (returnType == null) {
+            returnType = getChildText(node, "type_identifier");
+        }
+
+        builder.returnType(new UMLType(returnType != null ? returnType : "void"));
     }
 
     @Override
@@ -231,12 +382,20 @@ public class CPPASTVisitor extends ASTVisitor {
 
     @Override
     protected void processImport(ASTUtil.ASTNode node) {
-        ASTUtil.ASTNode pathNode = findChildByType(node, "string_literal");
-        if (pathNode == null) return;
 
-        String importPath = pathNode.getText(sourceCode)
-                .replaceAll("\"", "")
-                .replaceAll("<|>", "");
+        ASTUtil.ASTNode libraryNode = findChildByType(node, "system_lib_string"); // type 1: system_lib_string
+        String importedName = null;
+        if (libraryNode != null) {
+            importedName = libraryNode.getText(sourceCode).replaceAll("<|>", "");
+        }
+        else {
+            ASTUtil.ASTNode localNode = findChildByType(node, "string_literal"); // type 2: string_literal
+            if (localNode != null){
+                importedName = getChildText(localNode, "string_content");
+            } else {
+                return;
+            }
+        }
 
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
@@ -245,7 +404,7 @@ public class CPPASTVisitor extends ASTVisitor {
                 CodeElementType.IMPORT_DECLARATION
         );
 
-        UMLImport umlImport = UMLImport.builder(importPath, locationInfo)
+        UMLImport umlImport = UMLImport.builder(importedName, locationInfo)
                 .type(UMLImport.ImportType.SINGLE)
                 .build();
 
@@ -300,26 +459,18 @@ public class CPPASTVisitor extends ASTVisitor {
         ASTUtil.ASTNode baseList = findChildByType(node, "base_class_clause");
         if (baseList == null) return;
 
-        for (ASTUtil.ASTNode baseClass : baseList.children) {
-            if (baseClass.type.equals("base_class")) {
-                ASTUtil.ASTNode nameNode = findChildByType(baseClass, "identifier");
-                if (nameNode != null) {
-                    String baseName = nameNode.getText(sourceCode);
-                    if (!currentNamespace.isEmpty()) {
-                        baseName = currentNamespace + "::" + baseName;
-                    }
-                    umlClass.addSuperclass(baseName);
-                }
-            }
-        }
-    }
+        // Debug print
+        System.out.println("Found base class clause: " + baseList.getText(sourceCode));
 
-    private void processReturnType(ASTUtil.ASTNode node, UMLOperation.Builder builder) {
-        ASTUtil.ASTNode returnTypeNode = findChildByType(node, "type_identifier");
-        if (returnTypeNode != null) {
-            builder.returnType(new UMLType(returnTypeNode.getText(sourceCode)));
-        } else {
-            builder.returnType(new UMLType("void")); // Default C++ return type
+        // Look for type_identifier directly in base_class_clause
+        ASTUtil.ASTNode typeIdentifier = findChildByType(baseList, "type_identifier");
+        if (typeIdentifier != null) {
+            String baseName = typeIdentifier.getText(sourceCode);
+            if (!currentNamespace.isEmpty()) {
+                baseName = currentNamespace + "::" + baseName;
+            }
+            System.out.println("Adding superclass: " + baseName);
+            umlClass.addSuperclass(baseName);
         }
     }
 

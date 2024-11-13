@@ -44,7 +44,10 @@ public class UMLClass {
     public void addOperation(UMLOperation operation) {
         if (!operations.contains(operation)) {
             operation.setClassName(name);
+            System.out.println("Adding operation " + operation.getName() + " to class " + getName());
             operations.add(operation);
+            System.out.println("Current operations in class: " + operations.size());
+
         }
     }
 
