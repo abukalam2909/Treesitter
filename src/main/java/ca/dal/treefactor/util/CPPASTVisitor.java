@@ -29,15 +29,15 @@ public class CPPASTVisitor extends ASTVisitor {
             case "translation_unit":
                 processModule(node);
                 break;
-            case "namespace_definition":
-                processNamespace(node);
-                break;
             case "class_specifier":
                 processClass(node);
                 break;
             case "function_definition":
                 processMethod(node);
-                return; // Don't visit children - method handles its own body
+                return;
+            case "declaration":
+                processDeclaration(node);
+                return;
             case "field_declaration":
                 processField(node);
                 break;
@@ -49,6 +49,76 @@ public class CPPASTVisitor extends ASTVisitor {
         // Visit children
         for (ASTUtil.ASTNode child : node.children) {
             visit(child);
+        }
+    }
+
+    private void processDeclaration(ASTUtil.ASTNode node) {
+        // Get the full text of the declaration to check for virtual keyword
+        String fullText = node.getText(sourceCode);
+        System.out.println("Full declaration text: " + fullText);
+
+        boolean isVirtual = fullText.trim().startsWith("virtual");
+
+        ASTUtil.ASTNode initDeclarator = findChildByType(node, "init_declarator");
+        if (initDeclarator == null) return;
+
+        ASTUtil.ASTNode functionDeclarator = findChildByType(initDeclarator, "function_declarator");
+        if (functionDeclarator == null) return;
+
+        // Get method name
+        ASTUtil.ASTNode identifierNode = findChildByType(functionDeclarator, "identifier");
+        if (identifierNode == null) return;
+
+        String methodName = identifierNode.getText(sourceCode);
+        System.out.println("Found method declaration: " + methodName);
+        System.out.println("Is virtual: " + isVirtual);
+
+        LocationInfo locationInfo = new LocationInfo(
+                filePath,
+                node.startPoint,
+                node.endPoint,
+                CodeElementType.METHOD_DECLARATION
+        );
+
+        UMLOperation.Builder builder = UMLOperation.builder(methodName, locationInfo);
+
+        // Set virtual flag
+        builder.setVirtual(isVirtual);
+
+        // Process return type
+        ASTUtil.ASTNode returnTypeNode = findChildByType(node, "primitive_type");
+        if (returnTypeNode != null) {
+            builder.returnType(new UMLType(returnTypeNode.getText(sourceCode)));
+        } else {
+            builder.returnType(new UMLType("void")); // Default
+        }
+
+        // Check for pure virtual method (= 0)
+        ASTUtil.ASTNode numberLiteralNode = findChildByType(initDeclarator, "number_literal");
+        boolean isAbstract = false;
+        if (numberLiteralNode != null) {
+            String value = numberLiteralNode.getText(sourceCode);
+            System.out.println("Found number literal: " + value);
+            isAbstract = value.equals("0");
+        }
+
+        System.out.println("Setting abstract to: " + isAbstract);
+        builder.setAbstract(isAbstract);
+
+        // Process parameters
+        processParameters(node, builder);
+
+        // Build and add operation
+        UMLOperation operation = builder.build();
+        System.out.println("Built operation: " + operation.getName());
+        System.out.println("Virtual flag: " + operation.isVirtual());
+        System.out.println("Abstract flag: " + operation.isAbstract());
+
+        if (currentClass != null) {
+            operation.setClassName(currentClass.getName());
+            currentClass.addOperation(operation);
+        } else {
+            model.addOperation(operation);
         }
     }
 
@@ -84,11 +154,12 @@ public class CPPASTVisitor extends ASTVisitor {
 
     @Override
     protected void processClass(ASTUtil.ASTNode node) {
-        ASTUtil.ASTNode nameNode = findChildByType(node, "identifier");
+        System.out.println("processing class");
+        ASTUtil.ASTNode nameNode = findChildByType(node, "type_identifier");
         if (nameNode == null) return;
 
         String className = nameNode.getText(sourceCode);
-
+        System.out.println(" class name" + className);
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
                 node.startPoint,
@@ -151,10 +222,16 @@ public class CPPASTVisitor extends ASTVisitor {
 
     @Override
     protected void processMethod(ASTUtil.ASTNode node) {
-        ASTUtil.ASTNode nameNode = findChildByType(node, "identifier");
-        if (nameNode == null) return;
+        System.out.println("process Method");
+        ASTUtil.ASTNode functionDeclarator = findChildByType(node, "function_declarator");
+        if (functionDeclarator == null) return;
 
-        String methodName = nameNode.getText(sourceCode);
+        // Get method name from identifier
+        ASTUtil.ASTNode identifierNode = findChildByType(functionDeclarator, "identifier");
+        if (identifierNode == null) return;
+
+        String methodName = identifierNode.getText(sourceCode);
+        System.out.println("Method name " + methodName);
 
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
@@ -165,8 +242,8 @@ public class CPPASTVisitor extends ASTVisitor {
 
         UMLOperation.Builder builder = UMLOperation.builder(methodName, locationInfo);
 
-        // Add method to scope before processing body
-        currentScope.add(methodName);
+        // Process method modifiers - make sure this is called before building
+        processMethodModifiers(functionDeclarator, builder);
 
         // Process parameters
         processParameters(node, builder);
@@ -188,10 +265,45 @@ public class CPPASTVisitor extends ASTVisitor {
         } else {
             model.addOperation(operation);
         }
-
-        currentScope.remove(currentScope.size() - 1);
     }
 
+    private void processMethodModifiers(ASTUtil.ASTNode functionDeclarator, UMLOperation.Builder builder) {
+        // Check for const qualifier at function declaration level
+        List<ASTUtil.ASTNode> typeQualifiers = findChildrenByType(functionDeclarator, "type_qualifier");
+        for (ASTUtil.ASTNode qualifier : typeQualifiers) {
+            String qualifierText = qualifier.getText(sourceCode);
+            System.out.println("Found qualifier: " + qualifierText); // Debug print
+            if ("const".equals(qualifierText)) {
+                builder.setConst(true);
+            }
+        }
+
+        // Check for noexcept
+        ASTUtil.ASTNode noexceptNode = findChildByType(functionDeclarator, "noexcept");
+        if (noexceptNode != null) {
+            builder.setNoexcept(true);
+        }
+
+        // Check for inline
+        ASTUtil.ASTNode inlineNode = findChildByType(functionDeclarator, "inline");
+        if (inlineNode != null) {
+            builder.setInline(true);
+        }
+    }
+    private void processReturnType(ASTUtil.ASTNode node, UMLOperation.Builder builder) {
+        // First try to find primitive_type
+        ASTUtil.ASTNode typeNode = findChildByType(node, "primitive_type");
+        if (typeNode == null) {
+            // Then try type_identifier
+            typeNode = findChildByType(node, "type_identifier");
+        }
+
+        if (typeNode != null) {
+            builder.returnType(new UMLType(typeNode.getText(sourceCode)));
+        } else {
+            builder.returnType(new UMLType("void")); // Default C++ return type
+        }
+    }
     @Override
     protected void processField(ASTUtil.ASTNode node) {
         if (currentClass == null) return;
@@ -314,14 +426,6 @@ public class CPPASTVisitor extends ASTVisitor {
         }
     }
 
-    private void processReturnType(ASTUtil.ASTNode node, UMLOperation.Builder builder) {
-        ASTUtil.ASTNode returnTypeNode = findChildByType(node, "type_identifier");
-        if (returnTypeNode != null) {
-            builder.returnType(new UMLType(returnTypeNode.getText(sourceCode)));
-        } else {
-            builder.returnType(new UMLType("void")); // Default C++ return type
-        }
-    }
 
     private String extractModuleName(String filePath) {
         return filePath.replaceAll("[/\\\\]", "::")

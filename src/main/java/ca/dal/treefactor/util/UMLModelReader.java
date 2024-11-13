@@ -76,7 +76,7 @@ public class UMLModelReader {
 
         return switch (extension) {
             case PYTHON_EXT -> new PythonASTVisitor(umlModel, content, filePath);
-            case CPP_EXT -> throw new UnsupportedOperationException("C++ support not yet implemented");
+            case CPP_EXT -> new CPPASTVisitor(umlModel, content, filePath);
             case JS_EXT -> throw new UnsupportedOperationException("JavaScript support not yet implemented");
             default -> null;
         };

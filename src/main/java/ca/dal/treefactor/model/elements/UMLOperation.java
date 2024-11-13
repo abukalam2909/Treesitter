@@ -28,6 +28,8 @@ public class UMLOperation {
     private boolean isGenerator;   // For JavaScript/Python
     private boolean isVirtual;     // For C++
     private boolean isConst;       // For C++
+    private boolean isInline;      // For C++
+    private boolean isNoexcept;    // For C++
 
     // Method body
     private String body;
@@ -209,6 +211,22 @@ public class UMLOperation {
         this.isConst = isConst;
     }
 
+    public boolean isInline() {
+        return isInline;
+    }
+
+    public void setInline(boolean isInline) {
+        this.isInline = isInline;
+    }
+
+    public boolean isNoexcept() {
+        return isNoexcept;
+    }
+
+    public void setNoexcept(boolean isNoexcept) {
+        this.isNoexcept = isNoexcept;
+    }
+
     // Utility methods
     public boolean isInstanceMethod() {
         return !isStatic && className != null;
@@ -253,8 +271,11 @@ public class UMLOperation {
         }
         sb.append(")");
 
+        if (isInline) sb.append("inline ");
+
         // Add const qualifier for C++
         if (isConst) sb.append(" const");
+        if (isNoexcept) sb.append(" noexcept");
 
         return sb.toString();
     }
@@ -295,6 +316,10 @@ public class UMLOperation {
         private boolean isFinal;
         private boolean isConstructor;
         private boolean isAsync;
+        private boolean isVirtual;
+        private boolean isConst;
+        private boolean isInline;
+        private boolean isNoexcept;
         private String body;
 
         public Builder(String name, LocationInfo locationInfo) {
@@ -357,6 +382,26 @@ public class UMLOperation {
             return this;
         }
 
+        public Builder setVirtual(boolean isVirtual) {
+            this.isVirtual = isVirtual;
+            return this;
+        }
+
+        public Builder setConst(boolean isConst) {
+            this.isConst = isConst;
+            return this;
+        }
+
+        public Builder setInline(boolean isInline) {
+            this.isInline = isInline;
+            return this;
+        }
+
+        public Builder setNoexcept(boolean isNoexcept) {
+            this.isNoexcept = isNoexcept;
+            return this;
+        }
+
         public UMLOperation build() {
             UMLOperation operation = new UMLOperation(name, locationInfo);
             operation.setClassName(className);
@@ -369,6 +414,10 @@ public class UMLOperation {
             operation.setFinal(isFinal);
             operation.setConstructor(isConstructor);
             operation.setAsync(isAsync);
+            operation.setVirtual(isVirtual);
+            operation.setConst(isConst);      // Make sure this is being set
+            operation.setInline(isInline);    // Make sure this is being set
+            operation.setNoexcept(isNoexcept);// Make sure this is being set
             operation.setBody(body);
             return operation;
         }
