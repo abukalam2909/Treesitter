@@ -1,4 +1,3 @@
-// src/main/java/ca/dal/treefactor/model/CodeElementType.java
 package ca.dal.treefactor.model;
 
 public enum CodeElementType {
