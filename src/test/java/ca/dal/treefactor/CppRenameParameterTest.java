@@ -1,0 +1,137 @@
+package ca.dal.treefactor;
+
+import ca.dal.treefactor.model.UMLModel;
+import ca.dal.treefactor.model.diff.UMLModelDiff;
+import ca.dal.treefactor.model.diff.refactoring.Refactoring;
+import ca.dal.treefactor.model.diff.refactoring.operations.RenameParameterRefactoring;
+import ca.dal.treefactor.util.UMLModelReader;
+import org.junit.jupiter.api.Test;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public class CppRenameParameterTest {
+    @Test
+    public void RenameParameterSimple() {
+        Map<String, String> fileContentsBefore = new HashMap<>();
+        String fileContentsBeforeString = """
+                int calculate(int x, int y, int z) {
+                return x + y + z;}
+            """;
+        fileContentsBefore.put("example.cpp", fileContentsBeforeString);
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+
+
+        Map<String, String> fileContentsAfter = new HashMap<>();
+        String fileContentsAfterString = """
+                int calculate(int n, int y, int z) {
+                return n + y + z;}
+                """;
+        fileContentsAfter.put("example.cpp", fileContentsAfterString);
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+
+        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
+        List<Refactoring> refactorings = modelDiff.detectRefactorings();
+
+        // Verify refactoring detection
+        assertEquals(1, refactorings.size());
+        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
+
+        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
+        assertEquals("x", rename.getOriginalParameter().getName());
+        assertEquals("n", rename.getRenamedParameter().getName());
+    }
+
+    @Test
+    public void RenameParameterTwoParams() {
+        Map<String, String> fileContentsBefore = new HashMap<>();
+        String fileContentsBeforeString = """
+                int calculate(int x, int y, int z) {
+                return x + y + z;}
+        """;
+        fileContentsBefore.put("example.cpp", fileContentsBeforeString);
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+
+
+        Map<String, String> fileContentsAfter = new HashMap<>();
+        String fileContentsAfterString = """
+               int calculate(int a, int b, int z) {
+                return a + b + z;}
+        """;
+        fileContentsAfter.put("example.cpp", fileContentsAfterString);
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+
+        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
+        List<Refactoring> refactorings = modelDiff.detectRefactorings();
+
+        // Verify refactoring detection
+        // first parameter
+        assertEquals(2, refactorings.size());
+        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
+
+        RenameParameterRefactoring rename1 = (RenameParameterRefactoring) refactorings.get(0);
+        assertEquals("x", rename1.getOriginalParameter().getName());
+        assertEquals("a", rename1.getRenamedParameter().getName());
+
+        // second parameter
+        assertTrue(refactorings.get(1) instanceof RenameParameterRefactoring);
+        RenameParameterRefactoring rename2 = (RenameParameterRefactoring) refactorings.get(1);
+        assertEquals("y", rename2.getOriginalParameter().getName());
+        assertEquals("b", rename2.getRenamedParameter().getName());
+    }
+
+    @Test
+    public void RenameParameterThreeParams() {
+        Map<String, String> fileContentsBefore = new HashMap<>();
+        String fileContentsBeforeString = """
+                int calculate(int x, int y, int z) {
+                return x + y + z;}
+        """;
+        fileContentsBefore.put("example.cpp", fileContentsBeforeString);
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+
+
+        Map<String, String> fileContentsAfter = new HashMap<>();
+        String fileContentsAfterString = """
+               int calculate(int a, int b, int c) {
+                return a + b + c;}
+        """;
+        fileContentsAfter.put("example.cpp", fileContentsAfterString);
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+
+        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
+        List<Refactoring> refactorings = modelDiff.detectRefactorings();
+
+        // Verify refactoring detection
+        // first parameter
+        assertEquals(3, refactorings.size());
+        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
+
+        RenameParameterRefactoring rename1 = (RenameParameterRefactoring) refactorings.get(0);
+        assertEquals("x", rename1.getOriginalParameter().getName());
+        assertEquals("a", rename1.getRenamedParameter().getName());
+
+        // second parameter
+        assertTrue(refactorings.get(1) instanceof RenameParameterRefactoring);
+        RenameParameterRefactoring rename2 = (RenameParameterRefactoring) refactorings.get(1);
+        assertEquals("y", rename2.getOriginalParameter().getName());
+        assertEquals("b", rename2.getRenamedParameter().getName());
+
+        // third parameter
+        assertTrue(refactorings.get(2) instanceof RenameParameterRefactoring);
+        RenameParameterRefactoring rename3 = (RenameParameterRefactoring) refactorings.get(2);
+        assertEquals("z", rename3.getOriginalParameter().getName());
+        assertEquals("c", rename3.getRenamedParameter().getName());
+    }
+}
