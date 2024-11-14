@@ -57,6 +57,44 @@ public class CPPASTVisitor extends ASTVisitor {
         String fullText = node.getText(sourceCode);
         System.out.println("Full declaration text: " + fullText);
 
+        // Handle field initialization if it contains :: but not function parentheses
+        if (fullText.contains("::") && !fullText.contains("(")) {
+            ASTUtil.ASTNode initDeclarator = findChildByType(node, "init_declarator");
+            if (initDeclarator == null) return;
+
+            ASTUtil.ASTNode qualifiedId = findChildByType(initDeclarator, "qualified_identifier");
+            ASTUtil.ASTNode numberLiteral = findChildByType(initDeclarator, "number_literal");
+
+            if (qualifiedId != null && numberLiteral != null) {
+                ASTUtil.ASTNode scopeNode = findChildByType(qualifiedId, "namespace_identifier");
+                ASTUtil.ASTNode nameNode = findChildByType(qualifiedId, "identifier");
+
+                if (scopeNode != null && nameNode != null) {
+                    String className = scopeNode.getText(sourceCode);
+                    String fieldName = nameNode.getText(sourceCode);
+                    String value = numberLiteral.getText(sourceCode);
+
+                    System.out.println(String.format("Found initialization: class=%s, field=%s, value=%s",
+                            className, fieldName, value));
+
+                    // Find class and update attribute
+                    UMLClass targetClass = model.getClasses().stream()
+                            .filter(c -> c.getName().equals(className))
+                            .findFirst()
+                            .orElse(null);
+
+                    if (targetClass != null) {
+                        Optional<UMLAttribute> attr = targetClass.getAttribute(fieldName);
+                        if (attr.isPresent()) {
+                            attr.get().setInitialValue(value);
+                            System.out.println("Updated initial value for " + fieldName + " to " + value);
+                        }
+                    }
+                }
+            }
+            return;
+        }
+
         boolean isVirtual = fullText.trim().startsWith("virtual");
 
         ASTUtil.ASTNode initDeclarator = findChildByType(node, "init_declarator");
@@ -219,19 +257,18 @@ public class CPPASTVisitor extends ASTVisitor {
                         currentVisibility = Visibility.PRIVATE;
                         break;
                 }
-            } else {
-                if (child.type.equals("function_definition")) {
-                    System.out.println("Processing function definition in access specifiers");
-                    processMethod(child);
-                    // Apply visibility after processing the method
-                    if (currentClass != null && !currentClass.getOperations().isEmpty()) {
-                        UMLOperation lastOperation = currentClass.getOperations().get(currentClass.getOperations().size() - 1);
-                        lastOperation.setVisibility(currentVisibility);
-                        System.out.println("Set visibility " + currentVisibility + " for method " + lastOperation.getName());
-                    }
-                } else {
-                    visit(child);
+            } else if (child.type.equals("field_declaration")) {
+                processField(child, currentVisibility);
+            } else if (child.type.equals("function_definition")) {
+                System.out.println("Processing function definition in access specifiers");
+                processMethod(child);
+                if (currentClass != null && !currentClass.getOperations().isEmpty()) {
+                    UMLOperation lastOperation = currentClass.getOperations()
+                            .get(currentClass.getOperations().size() - 1);
+                    lastOperation.setVisibility(currentVisibility);
                 }
+            } else {
+                visit(child);
             }
         }
     }
@@ -345,15 +382,38 @@ public class CPPASTVisitor extends ASTVisitor {
 
     @Override
     protected void processField(ASTUtil.ASTNode node) {
-        if (currentClass == null) return;
+        processField(node, Visibility.DEFAULT);
+    }
 
-        ASTUtil.ASTNode typeNode = findChildByType(node, "type_identifier");
-        ASTUtil.ASTNode nameNode = findChildByType(node, "identifier");
+    protected void processField(ASTUtil.ASTNode node, Visibility visibility) {
+        System.out.println("Processing field node: " + node.type);
 
-        if (typeNode == null || nameNode == null) return;
+        if (currentClass == null) {
+            processFieldInitialization(node);
+            return;
+        }
 
-        String fieldName = nameNode.getText(sourceCode);
-        String fieldType = typeNode.getText(sourceCode);
+        // Get storage class (static)
+        ASTUtil.ASTNode storageClassNode = findChildByType(node, "storage_class_specifier");
+        boolean isStatic = storageClassNode != null &&
+                storageClassNode.getText(sourceCode).equals("static");
+
+        // Get type
+        ASTUtil.ASTNode typeNode = findChildByType(node, "primitive_type");
+        if (typeNode == null) {
+            typeNode = findChildByType(node, "type_identifier");
+        }
+
+        // Get field identifier
+        ASTUtil.ASTNode fieldIdNode = findChildByType(node, "field_identifier");
+
+        if (fieldIdNode == null) return;
+
+        String fieldName = fieldIdNode.getText(sourceCode);
+        String fieldType = typeNode != null ? typeNode.getText(sourceCode) : "int";
+
+        System.out.println(String.format("Creating field: %s, type: %s, static: %b",
+                fieldName, fieldType, isStatic));
 
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
@@ -368,16 +428,71 @@ public class CPPASTVisitor extends ASTVisitor {
                 locationInfo
         );
 
-        // Process field modifiers
-        processFieldModifiers(node, attribute);
-
-        // Get initial value if present
-        ASTUtil.ASTNode initNode = findChildByType(node, "initializer");
-        if (initNode != null) {
-            attribute.setInitialValue(initNode.getText(sourceCode));
-        }
+        // Set static modifier
+        attribute.setStatic(isStatic);
+        // Set visibility
+        attribute.setVisibility(visibility);
 
         currentClass.addAttribute(attribute);
+        System.out.println(String.format("Added attribute %s to class %s with visibility %s",
+                fieldName, currentClass.getName(), visibility));
+    }
+
+    private void processFieldInitialization(ASTUtil.ASTNode node) {
+        String fullText = node.getText(sourceCode);
+        System.out.println("Processing field initialization: " + fullText);
+
+        // Get the init_declarator
+        ASTUtil.ASTNode initDeclarator = findChildByType(node, "init_declarator");
+        if (initDeclarator == null) {
+            System.out.println("No init_declarator found");
+            return;
+        }
+
+        // Get the qualified identifier (Counter::count)
+        ASTUtil.ASTNode qualifiedId = findChildByType(initDeclarator, "qualified_identifier");
+        if (qualifiedId == null) {
+            System.out.println("No qualified_identifier found");
+            return;
+        }
+
+        String[] parts = qualifiedId.getText(sourceCode).split("::");
+        if (parts.length != 2) {
+            System.out.println("Invalid qualified identifier format");
+            return;
+        }
+
+        String className = parts[0];
+        String fieldName = parts[1];
+
+        System.out.println("Looking for class: " + className + ", field: " + fieldName);
+
+        // Find the target class
+        UMLClass targetClass = model.getClasses().stream()
+                .filter(c -> c.getName().equals(className))
+                .findFirst()
+                .orElse(null);
+
+        if (targetClass == null) {
+            System.out.println("Target class not found: " + className);
+            return;
+        }
+
+        // Find the attribute
+        Optional<UMLAttribute> existingAttr = targetClass.getAttribute(fieldName);
+        if (!existingAttr.isPresent()) {
+            System.out.println("Attribute not found: " + fieldName);
+            return;
+        }
+
+        // Get the value from the fullText since we know the format is "type Class::field = value;"
+        if (fullText.contains("=")) {
+            String value = fullText.substring(fullText.indexOf("=") + 1).trim();
+            // Remove semicolon if present
+            value = value.replace(";", "").trim();
+            existingAttr.get().setInitialValue(value);
+            System.out.println("Set initial value for " + fieldName + " to: " + value);
+        }
     }
 
     @Override
@@ -409,18 +524,6 @@ public class CPPASTVisitor extends ASTVisitor {
                 .build();
 
         model.addImport(filePath, umlImport);
-    }
-
-    private void processFieldModifiers(ASTUtil.ASTNode node, UMLAttribute attribute) {
-        List<ASTUtil.ASTNode> modifiers = findChildrenByType(node, "modifier");
-        for (ASTUtil.ASTNode modifier : modifiers) {
-            String mod = modifier.getText(sourceCode);
-            if (mod.equals("static")) {
-                attribute.setStatic(true);
-            } else if (mod.equals("const")) {
-                attribute.setFinal(true);
-            }
-        }
     }
 
     private void processParameters(ASTUtil.ASTNode node, UMLOperation.Builder builder) {
