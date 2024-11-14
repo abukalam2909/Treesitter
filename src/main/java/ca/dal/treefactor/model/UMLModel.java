@@ -290,4 +290,26 @@ public class UMLModel {
     public int hashCode() {
         return Objects.hash(language, classes, operations, commentMap, importMap, sourceFileContents, packageMap);
     }
+
+    public UMLClass getClassByName(String className) {
+        return classes.stream()
+                .filter(c -> c.getName().equals(className))
+                .findFirst()
+                .orElse(null);
+    }
+
+    // Alternative version that includes package/namespace
+    public UMLClass getClassByQualifiedName(String qualifiedName) {
+        return classes.stream()
+                .filter(c -> {
+                    String fullName = c.getPackageName().isEmpty() ?
+                            c.getName() :
+                            c.getPackageName() + "::" + c.getName();
+                    return fullName.equals(qualifiedName);
+                })
+                .findFirst()
+                .orElse(null);
+    }
+
+
 }

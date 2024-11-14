@@ -123,4 +123,30 @@ public abstract class ASTVisitor {
         ASTNode child = findChildByType(parent, childType);
         return getNodeText(child);
     }
+
+    // Helper method to find first node of a given type in the subtree
+    ASTNode findFirstNodeOfType(ASTNode root, String type) {
+        if (root.type.equals(type)) {
+            return root;
+        }
+        for (ASTNode child : root.children) {
+            ASTNode result = findFirstNodeOfType(child, type);
+            if (result != null) {
+                return result;
+            }
+        }
+        return null;
+    }
+
+    // Helper method to find all nodes of a given type in the subtree
+    private List<ASTNode> findNodesOfType(ASTNode root, String type) {
+        List<ASTNode> results = new ArrayList<>();
+        if (root.type.equals(type)) {
+            results.add(root);
+        }
+        for (ASTNode child : root.children) {
+            results.addAll(findNodesOfType(child, type));
+        }
+        return results;
+    }
 }

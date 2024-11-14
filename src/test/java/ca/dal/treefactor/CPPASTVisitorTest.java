@@ -26,7 +26,7 @@ public class CPPASTVisitorTest {
     @BeforeEach
     void setUp() throws IOException {
         language = TreeSitterUtil.loadLanguageForFileExtension(TEST_FILE);
-        model = new UMLModel(new HashSet<>(), "cpp");
+        model = new UMLModel("cpp");
         parser = new Parser();
         parser.setLanguage(language);
     }
@@ -226,6 +226,226 @@ public class CPPASTVisitorTest {
             assertEquals(1, imports.size(), "Should have one import");
             assertEquals("Person.h", imports.get(0).getImportedName(),
                     "Should import Person.h");
+        }
+    }
+
+
+    @Nested
+    class ParameterTests {
+        @Test
+        void testMultipleParameters() throws Exception {
+            String code = """
+            int calculate(int x, int y, int z) {
+                return x + y + z;
+            }
+            """;
+            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
+                Node rootNode = tree.getRootNode();
+                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
+                System.out.println("AST Structure:");
+                System.out.println(ASTUtil.printAST(astNode, 0));
+            }
+
+            processCode(code);
+
+            UMLOperation op = model.getOperations().get(0);
+            assertEquals(3, op.getParameters().size(), "Should have three parameters");
+            assertEquals("x", op.getParameters().get(0).getName());
+            assertEquals("y", op.getParameters().get(1).getName());
+            assertEquals("z", op.getParameters().get(2).getName());
+        }
+
+        @Test
+        void testParameterWithDefaultValue() throws Exception {
+            String code = """
+            void greet(std::string name = "World") {
+                std::cout << "Hello, " << name << "!" << std::endl;
+            }
+            """;
+
+            processCode(code);
+            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
+                Node rootNode = tree.getRootNode();
+                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
+                System.out.println("AST Structure:");
+                System.out.println(ASTUtil.printAST(astNode, 0));
+            }
+
+            UMLOperation op = model.getOperations().get(0);
+            UMLParameter param = op.getParameters().get(0);
+            assertEquals("name", param.getName());
+            assertEquals("\"World\"", param.getDefaultValue());
+            assertEquals("std::string", param.getType().getTypeName());
+        }
+
+        @Test
+        void testMultipleDefaultValues() throws Exception {
+            String code = """
+        void greet(std::string name = "World", int count = 1, bool formal = false) {
+            std::string prefix = formal ? "Dear " : "";
+            for(int i = 0; i < count; i++) {
+                std::cout << "Hello, " << prefix << name << "!" << std::endl;
+            }
+        }
+        """;
+            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
+                Node rootNode = tree.getRootNode();
+                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
+                System.out.println("AST Structure:");
+                System.out.println(ASTUtil.printAST(astNode, 0));
+            }
+
+            processCode(code);
+
+            UMLOperation op = model.getOperations().get(0);
+            List<UMLParameter> params = op.getParameters();
+
+            assertEquals(3, params.size());
+
+            assertEquals("name", params.get(0).getName());
+            assertEquals("std::string", params.get(0).getType().getTypeName());
+            assertEquals("\"World\"", params.get(0).getDefaultValue());
+
+            assertEquals("count", params.get(1).getName());
+            assertEquals("int", params.get(1).getType().getTypeName());
+            assertEquals("1", params.get(1).getDefaultValue());
+
+            assertEquals("formal", params.get(2).getName());
+            assertEquals("bool", params.get(2).getType().getTypeName());
+            assertEquals("false", params.get(2).getDefaultValue());
+        }
+
+        @Test
+        void testReferenceParameters() throws Exception {
+            String code = """
+        void process(const std::vector<int>& data, int& count, std::string& name) {
+            count = data.size();
+            name = "processed";
+        }
+        """;
+
+            processCode(code);
+
+            UMLOperation op = model.getOperations().get(0);
+            List<UMLParameter> params = op.getParameters();
+
+            assertEquals(3, params.size(), "Should have three parameters");
+            assertTrue(params.get(0).isReference(), "First parameter should be reference");
+            assertTrue(params.get(0).isConst(), "First parameter should be const");
+            assertTrue(params.get(1).isReference(), "Second parameter should be reference");
+            assertTrue(params.get(2).isReference(), "Third parameter should be reference");
+        }
+
+        @Test
+        void testMethodParameters() throws Exception {
+            String code = """
+        class Calculator {
+        public:
+            int add(int x, int y) const {
+                return x + y;
+            }
+        };
+        """;
+
+            processCode(code);
+
+            UMLClass calc = model.getClasses().get(0);
+            UMLOperation add = calc.getOperations().get(0);
+            List<UMLParameter> params = add.getParameters();
+
+            assertEquals(2, params.size());
+            assertEquals("int", params.get(0).getType().getTypeName());
+            assertEquals("int", params.get(1).getType().getTypeName());
+            assertTrue(add.isConst(), "Method should be const");
+        }
+
+        @Test
+        void testPointerParameters() throws Exception {
+            String code = """
+        void processData(int* data, const char* name, void* context) {
+            // Implementation
+        }
+        """;
+
+            processCode(code);
+
+            UMLOperation op = model.getOperations().get(0);
+            List<UMLParameter> params = op.getParameters();
+
+            assertEquals(3, params.size());
+            assertTrue(params.get(0).isPointer(), "First parameter should be pointer");
+            assertEquals("int", params.get(0).getType().getTypeName());
+
+            assertTrue(params.get(1).isPointer(), "Second parameter should be pointer");
+            assertTrue(params.get(1).isConst(), "Second parameter should be const");
+            assertEquals("char", params.get(1).getType().getTypeName());
+
+            assertTrue(params.get(2).isPointer(), "Third parameter should be pointer");
+            assertEquals("void", params.get(2).getType().getTypeName());
+        }
+
+        @Test
+        void testTemplateParameters() throws Exception {
+            String code = """
+        template<typename T>
+        void processVector(const std::vector<T>& items, 
+                          std::function<void(const T&)> processor = nullptr) {
+            for(const auto& item : items) {
+                if(processor) processor(item);
+            }
+        }
+        """;
+            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
+                Node rootNode = tree.getRootNode();
+                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
+                System.out.println("AST Structure:");
+                System.out.println(ASTUtil.printAST(astNode, 0));
+            }
+
+            // Print AST for debugging
+            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
+                Node rootNode = tree.getRootNode();
+                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
+                System.out.println("AST Structure:");
+                System.out.println(ASTUtil.printAST(astNode, 0));
+            }
+
+            processCode(code);
+
+            UMLOperation op = model.getOperations().get(0);
+            List<UMLParameter> params = op.getParameters();
+
+            assertEquals(2, params.size());
+            assertEquals("std::vector<T>", params.get(0).getType().getTypeName());
+            assertTrue(params.get(0).isReference() && params.get(0).isConst());
+            assertEquals("std::function<void(const T&)>", params.get(1).getType().getTypeName());
+            assertEquals("nullptr", params.get(1).getDefaultValue());
+        }
+
+        @Test
+        void testRValueReferenceParameters() throws Exception {
+            String code = """
+            void moveData(std::string&& data, std::vector<int>&& numbers) {
+                // Implementation
+            }
+            """;
+
+            processCode(code);
+            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
+                Node rootNode = tree.getRootNode();
+                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
+                System.out.println("AST Structure:");
+                System.out.println(ASTUtil.printAST(astNode, 0));
+            }
+
+            UMLOperation op = model.getOperations().get(0);
+            List<UMLParameter> params = op.getParameters();
+
+            assertEquals(2, params.size());
+            assertTrue(params.get(0).isRValueReference(), "First parameter should be rvalue reference");
+            assertEquals("std::string", params.get(0).getType().getTypeName());
+            assertTrue(params.get(1).isRValueReference(), "Second parameter should be rvalue reference");
+            assertEquals("std::vector<int>", params.get(1).getType().getTypeName());
         }
     }
 
