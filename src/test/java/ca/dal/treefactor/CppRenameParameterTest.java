@@ -134,4 +134,108 @@ public class CppRenameParameterTest {
         assertEquals("z", rename3.getOriginalParameter().getName());
         assertEquals("c", rename3.getRenamedParameter().getName());
     }
+
+    @Test
+    public void RenameParameterWithDefaultValue() {
+        Map<String, String> fileContentsBefore = new HashMap<>();
+        String fileContentsBeforeString = """
+            int calculator(int n = 1) {
+                return n + 5;
+            }
+        """;
+        fileContentsBefore.put("example.cpp", fileContentsBeforeString);
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+
+        Map<String, String> fileContentsAfter = new HashMap<>();
+        String fileContentsAfterString = """
+            int calculator(int num = 1) {
+                return num + 5;
+            }
+        """;
+        fileContentsAfter.put("example.cpp", fileContentsAfterString);
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+
+        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
+        List<Refactoring> refactorings = modelDiff.detectRefactorings();
+
+        assertEquals(1, refactorings.size());
+        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
+
+        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
+        assertEquals("n", rename.getOriginalParameter().getName());
+        assertEquals("num", rename.getRenamedParameter().getName());
+    }
+
+    @Test
+    public void RenameParameterWithConstReference() {
+        Map<String, String> fileContentsBefore = new HashMap<>();
+        String fileContentsBeforeString = """
+            void process(const std::string& str) {
+                std::cout << str << std::endl;
+            }
+        """;
+        fileContentsBefore.put("example.cpp", fileContentsBeforeString);
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+
+        Map<String, String> fileContentsAfter = new HashMap<>();
+        String fileContentsAfterString = """
+            void process(const std::string& input) {
+                std::cout << input << std::endl;
+            }
+        """;
+        fileContentsAfter.put("example.cpp", fileContentsAfterString);
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+
+        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
+        List<Refactoring> refactorings = modelDiff.detectRefactorings();
+
+        assertEquals(1, refactorings.size());
+        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
+
+        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
+        assertEquals("str", rename.getOriginalParameter().getName());
+        assertEquals("input", rename.getRenamedParameter().getName());
+    }
+
+    @Test
+    public void RenameMultipleParametersWithTypes() {
+        Map<String, String> fileContentsBefore = new HashMap<>();
+        String fileContentsBeforeString = """
+            void fullname(const std::string& fname, const std::string& lname) {
+                std::cout << fname << " " << lname << std::endl;
+            }
+        """;
+        fileContentsBefore.put("example.cpp", fileContentsBeforeString);
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+
+        Map<String, String> fileContentsAfter = new HashMap<>();
+        String fileContentsAfterString = """
+            void fullname(const std::string& firstname, const std::string& lastname) {
+                std::cout << firstname << " " << lastname << std::endl;
+            }
+        """;
+        fileContentsAfter.put("example.cpp", fileContentsAfterString);
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+
+        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
+        List<Refactoring> refactorings = modelDiff.detectRefactorings();
+
+        assertEquals(2, refactorings.size());
+        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
+        assertTrue(refactorings.get(1) instanceof RenameParameterRefactoring);
+
+        RenameParameterRefactoring rename1 = (RenameParameterRefactoring) refactorings.get(0);
+        assertEquals("fname", rename1.getOriginalParameter().getName());
+        assertEquals("firstname", rename1.getRenamedParameter().getName());
+
+        RenameParameterRefactoring rename2 = (RenameParameterRefactoring) refactorings.get(1);
+        assertEquals("lname", rename2.getOriginalParameter().getName());
+        assertEquals("lastname", rename2.getRenamedParameter().getName());
+    }
 }
