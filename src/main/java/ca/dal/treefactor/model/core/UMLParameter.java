@@ -97,7 +97,7 @@ public class UMLParameter {
     }
 
     public boolean hasDefaultValue() {
-        return isDefaultValuePresent;
+        return isDefaultValuePresent && defaultValue != null;
     }
 
     public String getDefaultValue() {
@@ -105,8 +105,28 @@ public class UMLParameter {
     }
 
     public void setDefaultValue(String defaultValue) {
-        this.defaultValue = defaultValue;
-        this.isDefaultValuePresent = defaultValue != null;
+        if (defaultValue != null) {
+            // Handle C++ specific cases
+            if (defaultValue.equals("null")) {
+                this.defaultValue = "nullptr";
+            } else if (defaultValue.startsWith("\"") && defaultValue.endsWith("\"")) {
+                // Already properly quoted string
+                this.defaultValue = defaultValue;
+            } else if (defaultValue.contains("\"")) {
+                // String content without proper quotes
+                this.defaultValue = "\"" + defaultValue.replace("\"", "") + "\"";
+            } else {
+                this.defaultValue = defaultValue;
+            }
+            this.isDefaultValuePresent = true;
+
+            // Debug logging
+            System.out.println("UMLParameter: Setting default value to: " + this.defaultValue);
+            System.out.println("UMLParameter: isDefaultValuePresent = " + this.isDefaultValuePresent);
+        } else {
+            this.defaultValue = null;
+            this.isDefaultValuePresent = false;
+        }
     }
 
     // Python-specific getters and setters
@@ -214,8 +234,8 @@ public class UMLParameter {
         sb.append(" ").append(name);
 
         // Add default value if present
-        if (isDefaultValuePresent) {
-            sb.append(" = ").append(defaultValue);
+        if (isDefaultValuePresent && defaultValue != null) {
+            sb.append(" = ").append(defaultValue); // Use the exact stored value
         }
 
         return sb.toString();
