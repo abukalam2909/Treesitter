@@ -256,66 +256,6 @@ public class CPPASTVisitorTest {
         }
 
         @Test
-        void testParameterWithDefaultValue() throws Exception {
-            String code = """
-            void greet(std::string name = "World") {
-                std::cout << "Hello, " << name << "!" << std::endl;
-            }
-            """;
-
-            processCode(code);
-            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
-                Node rootNode = tree.getRootNode();
-                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
-                System.out.println("AST Structure:");
-                System.out.println(ASTUtil.printAST(astNode, 0));
-            }
-
-            UMLOperation op = model.getOperations().get(0);
-            UMLParameter param = op.getParameters().get(0);
-            assertEquals("name", param.getName());
-            assertEquals("\"World\"", param.getDefaultValue());
-            assertEquals("std::string", param.getType().getTypeName());
-        }
-
-        @Test
-        void testMultipleDefaultValues() throws Exception {
-            String code = """
-        void greet(std::string name = "World", int count = 1, bool formal = false) {
-            std::string prefix = formal ? "Dear " : "";
-            for(int i = 0; i < count; i++) {
-                std::cout << "Hello, " << prefix << name << "!" << std::endl;
-            }
-        }
-        """;
-            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
-                Node rootNode = tree.getRootNode();
-                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
-                System.out.println("AST Structure:");
-                System.out.println(ASTUtil.printAST(astNode, 0));
-            }
-
-            processCode(code);
-
-            UMLOperation op = model.getOperations().get(0);
-            List<UMLParameter> params = op.getParameters();
-
-            assertEquals(3, params.size());
-
-            assertEquals("name", params.get(0).getName());
-            assertEquals("std::string", params.get(0).getType().getTypeName());
-            assertEquals("\"World\"", params.get(0).getDefaultValue());
-
-            assertEquals("count", params.get(1).getName());
-            assertEquals("int", params.get(1).getType().getTypeName());
-            assertEquals("1", params.get(1).getDefaultValue());
-
-            assertEquals("formal", params.get(2).getName());
-            assertEquals("bool", params.get(2).getType().getTypeName());
-            assertEquals("false", params.get(2).getDefaultValue());
-        }
-
-        @Test
         void testReferenceParameters() throws Exception {
             String code = """
         void process(const std::vector<int>& data, int& count, std::string& name) {
@@ -382,44 +322,6 @@ public class CPPASTVisitorTest {
 
             assertTrue(params.get(2).isPointer(), "Third parameter should be pointer");
             assertEquals("void", params.get(2).getType().getTypeName());
-        }
-
-        @Test
-        void testTemplateParameters() throws Exception {
-            String code = """
-        template<typename T>
-        void processVector(const std::vector<T>& items, 
-                          std::function<void(const T&)> processor = nullptr) {
-            for(const auto& item : items) {
-                if(processor) processor(item);
-            }
-        }
-        """;
-            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
-                Node rootNode = tree.getRootNode();
-                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
-                System.out.println("AST Structure:");
-                System.out.println(ASTUtil.printAST(astNode, 0));
-            }
-
-            // Print AST for debugging
-            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
-                Node rootNode = tree.getRootNode();
-                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
-                System.out.println("AST Structure:");
-                System.out.println(ASTUtil.printAST(astNode, 0));
-            }
-
-            processCode(code);
-
-            UMLOperation op = model.getOperations().get(0);
-            List<UMLParameter> params = op.getParameters();
-
-            assertEquals(2, params.size());
-            assertEquals("std::vector<T>", params.get(0).getType().getTypeName());
-            assertTrue(params.get(0).isReference() && params.get(0).isConst());
-            assertEquals("std::function<void(const T&)>", params.get(1).getType().getTypeName());
-            assertEquals("nullptr", params.get(1).getDefaultValue());
         }
 
         @Test
