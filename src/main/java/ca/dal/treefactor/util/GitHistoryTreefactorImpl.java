@@ -135,11 +135,11 @@ public class GitHistoryTreefactorImpl implements GitHistoryTreefactor {
                 String parentCommitId = parentCommit.getId().getName();
 
                 System.out.println("Parent Commit ID: " + parentCommitId);
-                
+
                 // Create and process parent commit
                 File parentCommitFolder = new File(mainFolderPath + File.separator + parentCommitId);
                 Map<String, String> fileContentsBefore;
-                
+
                 if (!parentCommitFolder.exists()) {
                     parentCommitFolder.mkdir();
                     fileContentsBefore = processAllFilesInCommit(repository, parentCommit, parentCommitFolder);

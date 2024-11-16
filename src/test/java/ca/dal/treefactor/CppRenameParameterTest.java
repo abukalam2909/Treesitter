@@ -24,7 +24,7 @@ public class CppRenameParameterTest {
                 return x + y + z;}
             """;
         fileContentsBefore.put("example.cpp", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
         UMLModel parentUMLModel = parentUmlReader.getUmlModel();
 
 
@@ -34,7 +34,7 @@ public class CppRenameParameterTest {
                 return n + y + z;}
                 """;
         fileContentsAfter.put("example.cpp", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
         UMLModel currentUMLModel = currentUmlReader.getUmlModel();
 
         UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
@@ -57,7 +57,7 @@ public class CppRenameParameterTest {
                 return x + y + z;}
         """;
         fileContentsBefore.put("example.cpp", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
         UMLModel parentUMLModel = parentUmlReader.getUmlModel();
 
 
@@ -67,7 +67,7 @@ public class CppRenameParameterTest {
                 return a + b + z;}
         """;
         fileContentsAfter.put("example.cpp", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
         UMLModel currentUMLModel = currentUmlReader.getUmlModel();
 
         UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
@@ -97,7 +97,7 @@ public class CppRenameParameterTest {
                 return x + y + z;}
         """;
         fileContentsBefore.put("example.cpp", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
         UMLModel parentUMLModel = parentUmlReader.getUmlModel();
 
 
@@ -107,7 +107,7 @@ public class CppRenameParameterTest {
                 return a + b + c;}
         """;
         fileContentsAfter.put("example.cpp", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
         UMLModel currentUMLModel = currentUmlReader.getUmlModel();
 
         UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
@@ -144,7 +144,7 @@ public class CppRenameParameterTest {
             }
         """;
         fileContentsBefore.put("example.cpp", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
         UMLModel parentUMLModel = parentUmlReader.getUmlModel();
 
         Map<String, String> fileContentsAfter = new HashMap<>();
@@ -154,7 +154,7 @@ public class CppRenameParameterTest {
             }
         """;
         fileContentsAfter.put("example.cpp", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
         UMLModel currentUMLModel = currentUmlReader.getUmlModel();
 
         UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
@@ -177,7 +177,7 @@ public class CppRenameParameterTest {
             }
         """;
         fileContentsBefore.put("example.cpp", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
         UMLModel parentUMLModel = parentUmlReader.getUmlModel();
 
         Map<String, String> fileContentsAfter = new HashMap<>();
@@ -187,7 +187,7 @@ public class CppRenameParameterTest {
             }
         """;
         fileContentsAfter.put("example.cpp", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
         UMLModel currentUMLModel = currentUmlReader.getUmlModel();
 
         UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
@@ -210,7 +210,7 @@ public class CppRenameParameterTest {
             }
         """;
         fileContentsBefore.put("example.cpp", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
         UMLModel parentUMLModel = parentUmlReader.getUmlModel();
 
         Map<String, String> fileContentsAfter = new HashMap<>();
@@ -220,7 +220,7 @@ public class CppRenameParameterTest {
             }
         """;
         fileContentsAfter.put("example.cpp", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
         UMLModel currentUMLModel = currentUmlReader.getUmlModel();
 
         UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
