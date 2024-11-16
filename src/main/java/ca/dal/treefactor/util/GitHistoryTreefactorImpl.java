@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -69,7 +68,7 @@ public class GitHistoryTreefactorImpl implements GitHistoryTreefactor {
                 fileContentsAfter = processAllFilesInCommit(repository, currentCommit, commitFolder);
             }
 
-            UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+            UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
             UMLModel currentUMLModel = currentUmlReader.getUmlModel();
 
             if (currentCommit.getParentCount() > 0){
@@ -86,7 +85,7 @@ public class GitHistoryTreefactorImpl implements GitHistoryTreefactor {
                     fileContentsBefore = processAllFilesInCommit(repository, parentCommit, parentCommitFolder);
                 }
 
-                UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+                UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
                 UMLModel parentUMLModel = parentUmlReader.getUmlModel();
 
                 UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
@@ -127,7 +126,7 @@ public class GitHistoryTreefactorImpl implements GitHistoryTreefactor {
             Map<String, String> fileContentsAfter = processAllFilesInCommit(repository, currentCommit, commitFolder);
 
             // Create UML model for current commit
-            UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+            UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
             UMLModel currentUMLModel = currentUmlReader.getUmlModel();
 
             // Process parent commits and find differences
@@ -150,7 +149,7 @@ public class GitHistoryTreefactorImpl implements GitHistoryTreefactor {
                 }
 
                 // Create UML model for parent commit
-                UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+                UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
                 UMLModel parentUMLModel = parentUmlReader.getUmlModel();
 
                 // Detect and print refactorings

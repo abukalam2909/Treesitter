@@ -1,23 +1,25 @@
 package ca.dal.treefactor;
 
-import ca.dal.treefactor.model.CodeElementType;
-import ca.dal.treefactor.model.UMLModel;
-import ca.dal.treefactor.model.core.*;
-import ca.dal.treefactor.model.diff.refactoring.operations.RenameParameterRefactoring;
-import ca.dal.treefactor.model.elements.*;
-import ca.dal.treefactor.model.diff.*;
-import ca.dal.treefactor.model.diff.refactoring.*;
-import ca.dal.treefactor.util.UMLModelReader;
-import io.github.treesitter.jtreesitter.Point;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Nested;
-import static org.junit.jupiter.api.Assertions.*;
-
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+
+import ca.dal.treefactor.model.CodeElementType;
+import ca.dal.treefactor.model.UMLModel;
+import ca.dal.treefactor.model.core.LocationInfo;
+import ca.dal.treefactor.model.core.UMLParameter;
+import ca.dal.treefactor.model.core.UMLType;
+import ca.dal.treefactor.model.diff.UMLModelDiff;
+import ca.dal.treefactor.model.diff.refactoring.Refactoring;
+import ca.dal.treefactor.model.diff.refactoring.operations.RenameParameterRefactoring;
+import ca.dal.treefactor.model.elements.UMLClass;
+import ca.dal.treefactor.model.elements.UMLOperation;
+import io.github.treesitter.jtreesitter.Point;
 
 class UMLModelDiffTest {
     private static final String TEST_FILE = "test.py";
@@ -31,8 +33,8 @@ class UMLModelDiffTest {
 
         @BeforeEach
         void setUp() {
-            oldModel = new UMLModel(REPO_DIR, "python");
-            newModel = new UMLModel(REPO_DIR, "python");
+            oldModel = new UMLModel("python");
+            newModel = new UMLModel("python");
         }
 
         @Test

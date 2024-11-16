@@ -3,7 +3,6 @@ package ca.dal.treefactor.util;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,10 +21,10 @@ public class UMLModelReader {
     private static final String CPP_EXT = "cpp";
     private static final String JS_EXT = "js";
 
-    public UMLModelReader(Map<String, String> fileContents, Set<String> repositoryDirectories) {
+    public UMLModelReader(Map<String, String> fileContents) {
         // Initialize UMLModel with language detection
         String primaryLanguage = detectPrimaryLanguage(fileContents);
-        this.umlModel = new UMLModel(repositoryDirectories, primaryLanguage);
+        this.umlModel = new UMLModel(primaryLanguage);
         processFileContents(fileContents);
     }
 

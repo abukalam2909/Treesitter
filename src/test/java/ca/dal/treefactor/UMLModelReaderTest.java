@@ -1,15 +1,15 @@
 package ca.dal.treefactor;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+
 import ca.dal.treefactor.model.UMLModel;
 import ca.dal.treefactor.model.elements.UMLClass;
 import ca.dal.treefactor.model.elements.UMLOperation;
-import ca.dal.treefactor.model.elements.UMLAttribute;
 import ca.dal.treefactor.util.UMLModelReader;
-import org.junit.jupiter.api.Test;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import static org.junit.jupiter.api.Assertions.*;
 
 public class UMLModelReaderTest {
 
@@ -20,7 +20,7 @@ public class UMLModelReaderTest {
         fileContents.put("example.py", "class Example:\n    def method(self):\n        pass");
 
         // Create UMLModelReader and generate UMLModel
-        UMLModelReader umlReader = new UMLModelReader(fileContents, new HashSet<>());
+        UMLModelReader umlReader = new UMLModelReader(fileContents);
         UMLModel model = umlReader.getUmlModel();
 
         // Verify the UML model

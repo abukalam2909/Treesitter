@@ -1,21 +1,18 @@
 package ca.dal.treefactor;
 
-import ca.dal.treefactor.model.CodeElementType;
-import ca.dal.treefactor.model.UMLModel;
-import ca.dal.treefactor.model.core.*;
-import ca.dal.treefactor.model.diff.refactoring.operations.RenameParameterRefactoring;
-import ca.dal.treefactor.model.elements.*;
-import ca.dal.treefactor.model.diff.*;
-import ca.dal.treefactor.model.diff.refactoring.*;
-import ca.dal.treefactor.util.UMLModelReader;
-import io.github.treesitter.jtreesitter.Point;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import org.junit.jupiter.api.BeforeEach;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Nested;
-import static org.junit.jupiter.api.Assertions.*;
 
-import java.util.*;
+import ca.dal.treefactor.model.UMLModel;
+import ca.dal.treefactor.model.diff.UMLModelDiff;
+import ca.dal.treefactor.model.diff.refactoring.Refactoring;
+import ca.dal.treefactor.model.diff.refactoring.operations.RenameParameterRefactoring;
+import ca.dal.treefactor.util.UMLModelReader;
 
 public class PythonRenameParameterTest {
     @Test
@@ -23,14 +20,14 @@ public class PythonRenameParameterTest {
         Map<String, String> fileContentsBefore = new HashMap<>();
         String fileContentsBeforeString = "def greet(n): print(f\"Hello, {n}!\")";
         fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
         UMLModel parentUMLModel = parentUmlReader.getUmlModel();
 
 
         Map<String, String> fileContentsAfter = new HashMap<>();
         String fileContentsAfterString = "def greet(name): print(f\"Hello, {name}!\")";
         fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
         UMLModel currentUMLModel = currentUmlReader.getUmlModel();
 
         UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
@@ -53,7 +50,7 @@ public class PythonRenameParameterTest {
                 return n + 5
             """;
         fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
         UMLModel parentUMLModel = parentUmlReader.getUmlModel();
 
 
@@ -63,7 +60,7 @@ public class PythonRenameParameterTest {
                 	return num + 5
                 """;
         fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
         UMLModel currentUMLModel = currentUmlReader.getUmlModel();
 
         UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
@@ -86,7 +83,7 @@ public class PythonRenameParameterTest {
                 	return n + 5
             """;
         fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
         UMLModel parentUMLModel = parentUmlReader.getUmlModel();
 
 
@@ -96,7 +93,7 @@ public class PythonRenameParameterTest {
                 	return num + 5
                 """;
         fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
         UMLModel currentUMLModel = currentUmlReader.getUmlModel();
 
         UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
@@ -119,7 +116,7 @@ public class PythonRenameParameterTest {
                 	return n + 5
             """;
         fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
         UMLModel parentUMLModel = parentUmlReader.getUmlModel();
 
 
@@ -129,7 +126,7 @@ public class PythonRenameParameterTest {
                 	return num + 5
                 """;
         fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
         UMLModel currentUMLModel = currentUmlReader.getUmlModel();
 
         UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
@@ -153,7 +150,7 @@ public class PythonRenameParameterTest {
                 fullname("amy", "doe")
         """;
         fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
         UMLModel parentUMLModel = parentUmlReader.getUmlModel();
 
 
@@ -164,7 +161,7 @@ public class PythonRenameParameterTest {
                fullname("amy", "doe")
         """;
         fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
         UMLModel currentUMLModel = currentUmlReader.getUmlModel();
 
         UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
@@ -198,7 +195,7 @@ public class PythonRenameParameterTest {
                     print(f"Hello {p}")
         """;
         fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore, new HashSet<>());
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
         UMLModel parentUMLModel = parentUmlReader.getUmlModel();
 
 
@@ -212,7 +209,7 @@ public class PythonRenameParameterTest {
                     print(f"Hello {person}")
         """;
         fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter, new HashSet<>());
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
         UMLModel currentUMLModel = currentUmlReader.getUmlModel();
 
         UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
