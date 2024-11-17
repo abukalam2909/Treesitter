@@ -8,13 +8,22 @@ public class UMLParameter {
     private final List<UMLAnnotation> annotations;
     private final LocationInfo locationInfo;
 
-    // Parameter properties
-    private String kind; // "in", "out", or "inout" for languages that support it
+    // Common parameter properties
+    private String kind;
     private boolean isVarargs;
     private boolean isFinal;
     private boolean isDefaultValuePresent;
     private String defaultValue;
-    private boolean isKeywordOnly;  // Add this field
+
+    // Python-specific properties
+    private boolean isKeywordOnly;
+
+    // C++-specific properties
+    private boolean isReference;
+    private boolean isRValueReference;
+    private boolean isConst;
+    private boolean isPointer;
+    private boolean isVolatile; // Additional C++ qualifier that might be useful
 
     public UMLParameter(String name, UMLType type, LocationInfo locationInfo) {
         this.name = name;
@@ -22,10 +31,15 @@ public class UMLParameter {
         this.locationInfo = locationInfo;
         this.annotations = new ArrayList<>();
         this.kind = "in"; // default to "in" parameter
-        this.isKeywordOnly = false; // default to false
+        this.isKeywordOnly = false;
+        this.isReference = false;
+        this.isRValueReference = false;
+        this.isConst = false;
+        this.isPointer = false;
+        this.isVolatile = false;
     }
 
-    // Annotation management
+    // Existing annotation methods remain the same
     public void addAnnotation(UMLAnnotation annotation) {
         if (!annotations.contains(annotation)) {
             annotations.add(annotation);
@@ -40,7 +54,7 @@ public class UMLParameter {
         return new ArrayList<>(annotations);
     }
 
-    // Basic getters
+    // Existing basic getters remain the same
     public String getName() {
         return name;
     }
@@ -53,7 +67,7 @@ public class UMLParameter {
         return locationInfo;
     }
 
-    // Property getters and setters
+    // Existing property getters and setters remain the same
     public String getKind() {
         return kind;
     }
@@ -83,7 +97,7 @@ public class UMLParameter {
     }
 
     public boolean hasDefaultValue() {
-        return isDefaultValuePresent;
+        return isDefaultValuePresent && defaultValue != null;
     }
 
     public String getDefaultValue() {
@@ -91,11 +105,31 @@ public class UMLParameter {
     }
 
     public void setDefaultValue(String defaultValue) {
-        this.defaultValue = defaultValue;
-        this.isDefaultValuePresent = defaultValue != null;
+        if (defaultValue != null) {
+            // Handle C++ specific cases
+            if (defaultValue.equals("null")) {
+                this.defaultValue = "nullptr";
+            } else if (defaultValue.startsWith("\"") && defaultValue.endsWith("\"")) {
+                // Already properly quoted string
+                this.defaultValue = defaultValue;
+            } else if (defaultValue.contains("\"")) {
+                // String content without proper quotes
+                this.defaultValue = "\"" + defaultValue.replace("\"", "") + "\"";
+            } else {
+                this.defaultValue = defaultValue;
+            }
+            this.isDefaultValuePresent = true;
+
+            // Debug logging
+            System.out.println("UMLParameter: Setting default value to: " + this.defaultValue);
+            System.out.println("UMLParameter: isDefaultValuePresent = " + this.isDefaultValuePresent);
+        } else {
+            this.defaultValue = null;
+            this.isDefaultValuePresent = false;
+        }
     }
 
-    // Add getter and setter for isKeywordOnly
+    // Python-specific getters and setters
     public boolean isKeywordOnly() {
         return isKeywordOnly;
     }
@@ -104,20 +138,72 @@ public class UMLParameter {
         this.isKeywordOnly = keywordOnly;
     }
 
-    // Utility methods
-    public boolean hasAnnotations() {
-        return !annotations.isEmpty();
+    // C++-specific getters and setters
+    public boolean isReference() {
+        return isReference;
     }
 
-    /**
-     * Returns the parameter's signature as it would appear in code
-     */
+    public void setReference(boolean reference) {
+        // Cannot be both reference and rvalue reference
+        if (reference && this.isRValueReference) {
+            this.isRValueReference = false;
+        }
+        this.isReference = reference;
+    }
+
+    public boolean isRValueReference() {
+        return isRValueReference;
+    }
+
+    public void setRValueReference(boolean rValueReference) {
+        // Cannot be both reference and rvalue reference
+        if (rValueReference && this.isReference) {
+            this.isReference = false;
+        }
+        this.isRValueReference = rValueReference;
+    }
+
+    public boolean isConst() {
+        return isConst;
+    }
+
+    public void setConst(boolean isConst) {
+        this.isConst = isConst;
+    }
+
+    public boolean isPointer() {
+        return isPointer;
+    }
+
+    public void setPointer(boolean pointer) {
+        this.isPointer = pointer;
+    }
+
+    public boolean isVolatile() {
+        return isVolatile;
+    }
+
+    public void setVolatile(boolean volatile_) {
+        this.isVolatile = volatile_;
+    }
+
+    // Updated getSignature() to include C++ qualifiers
     public String getSignature() {
         StringBuilder sb = new StringBuilder();
 
         // Add annotations
         for (UMLAnnotation annotation : annotations) {
             sb.append(annotation.toString()).append(" ");
+        }
+
+        // Add const qualifier if present
+        if (isConst) {
+            sb.append("const ");
+        }
+
+        // Add volatile qualifier if present
+        if (isVolatile) {
+            sb.append("volatile ");
         }
 
         // Add final modifier if present
@@ -128,6 +214,17 @@ public class UMLParameter {
         // Add type
         sb.append(type.toString());
 
+        // Add pointer or reference symbols
+        if (isPointer) {
+            sb.append("*");
+        }
+        if (isReference) {
+            sb.append("&");
+        }
+        if (isRValueReference) {
+            sb.append("&&");
+        }
+
         // Add varargs if applicable
         if (isVarargs) {
             sb.append("...");
@@ -137,13 +234,14 @@ public class UMLParameter {
         sb.append(" ").append(name);
 
         // Add default value if present
-        if (isDefaultValuePresent) {
-            sb.append(" = ").append(defaultValue);
+        if (isDefaultValuePresent && defaultValue != null) {
+            sb.append(" = ").append(defaultValue); // Use the exact stored value
         }
 
         return sb.toString();
     }
 
+    // Existing toString, equals, and hashCode methods remain the same
     @Override
     public String toString() {
         return getSignature();
@@ -165,7 +263,7 @@ public class UMLParameter {
         return Objects.hash(name, type, locationInfo);
     }
 
-    // Builder pattern for fluent API
+    // Updated Builder pattern to include C++ features
     public static class Builder {
         private final String name;
         private final UMLType type;
@@ -175,7 +273,12 @@ public class UMLParameter {
         private boolean isVarargs;
         private boolean isFinal;
         private String defaultValue;
-        private boolean isKeywordOnly;  // Add this field
+        private boolean isKeywordOnly;
+        private boolean isReference;
+        private boolean isRValueReference;
+        private boolean isConst;
+        private boolean isPointer;
+        private boolean isVolatile;
 
         public Builder(String name, UMLType type, LocationInfo locationInfo) {
             this.name = name;
@@ -183,6 +286,7 @@ public class UMLParameter {
             this.locationInfo = locationInfo;
         }
 
+        // Existing builder methods
         public Builder addAnnotation(UMLAnnotation annotation) {
             annotations.add(annotation);
             return this;
@@ -208,9 +312,36 @@ public class UMLParameter {
             return this;
         }
 
-        // Add builder method for keyword-only parameter
         public Builder setKeywordOnly(boolean keywordOnly) {
             this.isKeywordOnly = keywordOnly;
+            return this;
+        }
+
+        // New C++-specific builder methods
+        public Builder setReference(boolean reference) {
+            this.isReference = reference;
+            if (reference) this.isRValueReference = false; // Mutually exclusive
+            return this;
+        }
+
+        public Builder setRValueReference(boolean rValueReference) {
+            this.isRValueReference = rValueReference;
+            if (rValueReference) this.isReference = false; // Mutually exclusive
+            return this;
+        }
+
+        public Builder setConst(boolean isConst) {
+            this.isConst = isConst;
+            return this;
+        }
+
+        public Builder setPointer(boolean pointer) {
+            this.isPointer = pointer;
+            return this;
+        }
+
+        public Builder setVolatile(boolean volatile_) {
+            this.isVolatile = volatile_;
             return this;
         }
 
@@ -219,7 +350,12 @@ public class UMLParameter {
             parameter.setKind(kind);
             parameter.setVarargs(isVarargs);
             parameter.setFinal(isFinal);
-            parameter.setKeywordOnly(isKeywordOnly);  // Set keyword-only property
+            parameter.setKeywordOnly(isKeywordOnly);
+            parameter.setReference(isReference);
+            parameter.setRValueReference(isRValueReference);
+            parameter.setConst(isConst);
+            parameter.setPointer(isPointer);
+            parameter.setVolatile(isVolatile);
             if (defaultValue != null) {
                 parameter.setDefaultValue(defaultValue);
             }

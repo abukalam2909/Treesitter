@@ -153,13 +153,12 @@ public class UMLType {
     public String toString() {
         StringBuilder sb = new StringBuilder();
 
-        // Add annotations
-        for (UMLAnnotation annotation : annotations) {
-            sb.append(annotation.toString()).append(" ");
+        // Handle namespace-qualified types (like std::string)
+        if (typeName.contains("::")) {
+            sb.append(typeName);
+        } else {
+            sb.append(typeName);
         }
-
-        // Add type name
-        sb.append(typeName);
 
         // Add type parameters if present
         if (!typeParameters.isEmpty()) {
@@ -169,16 +168,6 @@ public class UMLType {
                 sb.append(typeParameters.get(i).toString());
             }
             sb.append(">");
-        }
-
-        // Add array brackets if it's an array
-        if (isArray) {
-            sb.append("[]".repeat(arrayDimensions));
-        }
-
-        // Add varargs if applicable
-        if (isVarargs) {
-            sb.append("...");
         }
 
         return sb.toString();
