@@ -47,17 +47,24 @@ public class UMLModelReader {
         for (Map.Entry<String, String> entry : fileContents.entrySet()) {
             String filePath = entry.getKey();
             String content = entry.getValue();
+            String extension = getFileExtension(filePath);
 
-            try {
-                Language language = TreeSitterUtil.loadLanguageForFileExtension(filePath);
-                processAST(filePath, content, language);
-            } catch (IOException e) {
-                LOGGER.error("Error loading language for file: " + filePath, e);
-            } catch (Exception e) {
-                LOGGER.error("Error processing file: " + filePath, e);
+            // Check if the file extension is one of the desired types
+            if (extension.equals("py") || extension.equals("cpp") || extension.equals("js")) {
+                try {
+                    Language language = TreeSitterUtil.loadLanguageForFileExtension(filePath);
+                    processAST(filePath, content, language);
+                } catch (IOException e) {
+                    LOGGER.error("Error loading language for file: " + filePath, e);
+                } catch (Exception e) {
+                    LOGGER.error("Error processing file: " + filePath, e);
+                }
+            } else {
+                LOGGER.warn("Skipping file with unsupported extension: " + filePath);
             }
         }
     }
+
 
     private void processAST(String filePath, String content, Language language) throws Exception {
         try (Parser parser = new Parser()) {
