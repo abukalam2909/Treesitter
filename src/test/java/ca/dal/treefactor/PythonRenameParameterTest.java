@@ -236,4 +236,44 @@ public class PythonRenameParameterTest {
         assertEquals("p", rename3.getOriginalParameter().getName());
         assertEquals("person", rename3.getRenamedParameter().getName());
     }
+
+    @Test
+    public void RenameParameterInsideClass() {
+        Map<String, String> fileContentsBefore = new HashMap<>();
+        String fileContentsBeforeString = """
+                class Square:
+                   def calculate_perimeter(self, side_length):
+                       return 4 * side_length
+                       """;
+        fileContentsBefore.put("example.py", fileContentsBeforeString);
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
+        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+
+
+        Map<String, String> fileContentsAfter = new HashMap<>();
+        String fileContentsAfterString = """
+                class Square:
+                   def calculate_perimeter(self, s):
+                       return 4 * s
+                       """;
+        fileContentsAfter.put("example.py", fileContentsAfterString);
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
+        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+
+        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
+        List<Refactoring> refactorings = modelDiff.detectRefactorings();
+
+        // Verify refactoring detection
+        assertEquals(2, refactorings.size());
+        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
+        assertTrue(refactorings.get(1) instanceof RenameParameterRefactoring);
+
+        RenameParameterRefactoring rename0 = (RenameParameterRefactoring) refactorings.get(0);
+        assertEquals("side_length", rename0.getOriginalParameter().getName());
+        assertEquals("s", rename0.getRenamedParameter().getName());
+
+        RenameParameterRefactoring rename1 = (RenameParameterRefactoring) refactorings.get(1);
+        assertEquals("side_length", rename1.getOriginalParameter().getName());
+        assertEquals("s", rename1.getRenamedParameter().getName());
+    }
 }
