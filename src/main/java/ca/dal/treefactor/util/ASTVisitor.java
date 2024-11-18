@@ -1,10 +1,10 @@
 package ca.dal.treefactor.util;
 
-import ca.dal.treefactor.model.UMLModel;
-import ca.dal.treefactor.util.ASTUtil.ASTNode;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import ca.dal.treefactor.model.UMLModel;
+import ca.dal.treefactor.util.ASTUtil.ASTNode;
 
 public abstract class ASTVisitor {
     protected final UMLModel model;
@@ -61,9 +61,12 @@ public abstract class ASTVisitor {
     }
 
     protected ASTNode findChildByFieldName(ASTNode parent, String fieldName) {
-        if (parent == null) return null;
+        if (parent == null || fieldName == null) {
+            return null;
+        }
         for (ASTNode child : parent.children) {
-            if (child.fieldName.equals(fieldName)) {
+            // Defensive check for null field name
+            if (child != null && child.fieldName != null && child.fieldName.equals(fieldName)) {
                 return child;
             }
         }

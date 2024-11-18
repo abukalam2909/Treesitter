@@ -1,17 +1,27 @@
 package ca.dal.treefactor.util;
 
-import ca.dal.treefactor.model.CodeElementType;
-import ca.dal.treefactor.model.UMLModel;
-import ca.dal.treefactor.model.elements.UMLOperation;
-import ca.dal.treefactor.model.elements.UMLClass;
-import ca.dal.treefactor.model.elements.UMLAttribute;
-import ca.dal.treefactor.model.core.*;
-
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import ca.dal.treefactor.model.CodeElementType;
+import ca.dal.treefactor.model.UMLModel;
+import ca.dal.treefactor.model.core.LocationInfo;
+import ca.dal.treefactor.model.core.UMLAnnotation;
+import ca.dal.treefactor.model.core.UMLComment;
+import ca.dal.treefactor.model.core.UMLImport;
+import ca.dal.treefactor.model.core.UMLParameter;
+import ca.dal.treefactor.model.core.UMLType;
+import ca.dal.treefactor.model.core.Visibility;
+import ca.dal.treefactor.model.elements.UMLAttribute;
+import ca.dal.treefactor.model.elements.UMLClass;
+import ca.dal.treefactor.model.elements.UMLOperation;
+
 
 public class PythonASTVisitor extends ASTVisitor {
+    private static final Logger LOGGER = LoggerFactory.getLogger(PythonASTVisitor.class);
     private UMLClass currentClass; // Track current class being processed
     private final List<String> currentScope; // Track nested scopes
 
@@ -62,14 +72,14 @@ public class PythonASTVisitor extends ASTVisitor {
 
     @Override
     protected void processClass(ASTUtil.ASTNode node) {
-        System.out.println("Processing class node: " + node.type);
+        LOGGER.info("Processing class node: {}", node.type);
 
         // Find the actual class definition node
         ASTUtil.ASTNode classNode;
         List<ASTUtil.ASTNode> decorators = new ArrayList<>();
 
         if (node.type.equals("decorated_definition")) {
-            System.out.println("Found decorated definition");
+            LOGGER.info("Found decorated definition");
             // Get decorators directly from decorated_definition
             for (ASTUtil.ASTNode child : node.children) {
                 if (child.type.equals("decorator")) {
@@ -86,7 +96,7 @@ public class PythonASTVisitor extends ASTVisitor {
         String className = extractClassName(classNode);
         if (className == null) return;
 
-        System.out.println("Found class: " + className);
+        LOGGER.info("Found class: {}", className);
 
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
@@ -100,7 +110,7 @@ public class PythonASTVisitor extends ASTVisitor {
 
         // Process decorators if any were found
         if (!decorators.isEmpty()) {
-            System.out.println("Processing " + decorators.size() + " decorators");
+            LOGGER.info("Processing {} decorators", decorators.size());
             processDecorators(decorators, currentClass);
         }
 
@@ -124,7 +134,7 @@ public class PythonASTVisitor extends ASTVisitor {
         model.addClass(currentClass);
         currentClass = previousClass;
 
-        System.out.println("Finished processing class: " + className);
+        LOGGER.info("Finished processing class: {}", className);
     }
 
     @Override
@@ -132,7 +142,7 @@ public class PythonASTVisitor extends ASTVisitor {
         String functionName = extractFunctionName(node);
         if (functionName == null) return;
 
-        System.out.println("Processing method: " + functionName);
+        LOGGER.info("Processing method: {}", functionName);
 
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
@@ -168,7 +178,7 @@ public class PythonASTVisitor extends ASTVisitor {
         if (currentClass != null) {
             operation.setClassName(currentClass.getName());
             currentClass.addOperation(operation);
-            System.out.println("Added method " + functionName + " to class " + currentClass.getName());
+            LOGGER.info("Added method " + functionName + " to class " + currentClass.getName());
         } else {
             model.addOperation(operation);
         }
@@ -179,23 +189,23 @@ public class PythonASTVisitor extends ASTVisitor {
 
     @Override
     protected void processField(ASTUtil.ASTNode node) {
-        System.out.println("Processing potential field node: " + node.type);
+        LOGGER.info("Processing potential field node: {}", node.type);
 
         // Skip if not in a class context
         if (currentClass == null) {
-            System.out.println("No current class context");
+            LOGGER.info("No current class context");
             return;
         }
 
         // Handle assignments
         if (node.type.equals("assignment")) {
             ASTUtil.ASTNode leftNode = findChildByFieldName(node, "left");
-            System.out.println("Left node type: " + (leftNode != null ? leftNode.type : "null"));
+            LOGGER.info("Left node type: {}", (leftNode != null ? leftNode.type : "null"));
 
             if (leftNode != null) {
                 // Print AST structure for debugging
-                System.out.println("Assignment structure:");
-                System.out.println(ASTUtil.printAST(node, 0));
+                LOGGER.info("Assignment structure:");
+                LOGGER.info(ASTUtil.printAST(node, 0));
 
                 if (leftNode.type.equals("attribute")) {
                     // Handle instance attributes (self.attribute assignments in methods)
@@ -205,7 +215,7 @@ public class PythonASTVisitor extends ASTVisitor {
                         ASTUtil.ASTNode attributeNode = findChildByFieldName(leftNode, "attribute");
                         if (attributeNode != null) {
                             String fieldName = attributeNode.getText(sourceCode);
-                            System.out.println("Found instance attribute: " + fieldName);
+                            LOGGER.info("Found instance attribute: {}", fieldName);
 
                             LocationInfo locationInfo = new LocationInfo(
                                     filePath,
@@ -233,13 +243,13 @@ public class PythonASTVisitor extends ASTVisitor {
                             }
 
                             currentClass.addAttribute(attribute);
-                            System.out.println("Added instance attribute: " + fieldName);
+                            LOGGER.info("Added instance attribute: {}", fieldName);
                         }
                     }
                 } else if (leftNode.type.equals("identifier") && !isInMethod()) {
                     // Handle class attributes (direct assignments in class body)
                     String fieldName = leftNode.getText(sourceCode);
-                    System.out.println("Found class attribute: " + fieldName);
+                    LOGGER.info("Found class attribute: ", fieldName);
 
                     LocationInfo locationInfo = new LocationInfo(
                             filePath,
@@ -264,20 +274,20 @@ public class PythonASTVisitor extends ASTVisitor {
                     ASTUtil.ASTNode rightNode = findChildByFieldName(node, "right");
                     if (rightNode != null) {
                         attribute.setInitialValue(rightNode.getText(sourceCode));
-                        System.out.println("Set initial value: " + rightNode.getText(sourceCode));
+                        LOGGER.info("Set initial value: ", rightNode.getText(sourceCode));
                     }
 
                     currentClass.addAttribute(attribute);
-                    System.out.println("Added class attribute: " + fieldName);
+                    LOGGER.info("Added class attribute: {}", fieldName);
                 } else {
-                    System.out.println("Not processing field: " +
+                    LOGGER.info("Not processing field: {}",
                             (leftNode.type.equals("identifier") ? "in method" : "not identifier or attribute"));
                 }
             }
         }
 
         // Print current attributes for debugging
-        System.out.println("Current class attributes: " +
+        LOGGER.info("Current class attributes: {}",
                 (currentClass != null ? currentClass.getAttributes().size() : "no class"));
     }
 
@@ -311,7 +321,7 @@ public class PythonASTVisitor extends ASTVisitor {
         if (moduleNode == null) return;
 
         String moduleName = moduleNode.getText(sourceCode);
-        System.out.println("Module name: " + moduleName);
+        LOGGER.info("Module name: {}", moduleName);
 
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
@@ -324,7 +334,7 @@ public class PythonASTVisitor extends ASTVisitor {
         for (ASTUtil.ASTNode child : node.children) {
             if (child.fieldName != null && child.fieldName.equals("name")) {
                 String importedName = child.getText(sourceCode);
-                System.out.println("Importing: " + importedName);
+                LOGGER.info("Importing: {}", importedName);
 
                 // Construct full import name (e.g., "os.path.join")
                 String fullName = moduleName + "." + importedName;
@@ -334,7 +344,7 @@ public class PythonASTVisitor extends ASTVisitor {
                         .build();
 
                 model.addImport(filePath, umlImport);
-                System.out.println("Added import: " + fullName);
+                LOGGER.info("Added import: {}", fullName);
             }
         }
     }
@@ -390,11 +400,11 @@ public class PythonASTVisitor extends ASTVisitor {
         boolean keywordOnlyMode = false;
 
         for (ASTUtil.ASTNode param : parameters.children) {
-            System.out.println("Parameter node type: " + param.type);
+            LOGGER.info("Parameter node type: {}", param.type);
 
             // Check for keyword separator (*)
             if (param.type.equals("keyword_separator")) {
-                System.out.println("Found keyword separator");
+                LOGGER.info("Found keyword separator");
                 keywordOnlyMode = true;
                 continue;
             }
@@ -425,11 +435,11 @@ public class PythonASTVisitor extends ASTVisitor {
 
                     if (valueNode != null) {
                         parameter.setDefaultValue(valueNode.getText(sourceCode));
-                        System.out.println("Set default value: " + valueNode.getText(sourceCode));
+                        LOGGER.info("Set default value: {}", valueNode.getText(sourceCode));
                     }
                     parameter.setKeywordOnly(keywordOnlyMode);  // Set keyword-only flag
                     builder.addParameter(parameter);
-                    System.out.println("Added typed parameter with default: " + paramName +
+                    LOGGER.info("Added typed parameter with default: {}", paramName +
                             " type: " + paramType.getTypeName() +
                             (keywordOnlyMode ? " (keyword-only)" : ""));
                 }
@@ -459,7 +469,7 @@ public class PythonASTVisitor extends ASTVisitor {
                     parameter.setKeywordOnly(keywordOnlyMode);  // Set keyword-only flag
 
                     builder.addParameter(parameter);
-                    System.out.println("Added typed parameter: " + paramName +
+                    LOGGER.info("Added typed parameter: {}", paramName +
                             " with type: " + paramType.getTypeName() +
                             (keywordOnlyMode ? " (keyword-only)" : ""));
                 }
@@ -486,12 +496,12 @@ public class PythonASTVisitor extends ASTVisitor {
 
                     if (valueNode != null) {
                         parameter.setDefaultValue(valueNode.getText(sourceCode));
-                        System.out.println("Set default value: " + valueNode.getText(sourceCode));
+                        LOGGER.info("Set default value: {}", valueNode.getText(sourceCode));
                     }
 
                     parameter.setKeywordOnly(keywordOnlyMode);  // Set keyword-only flag
                     builder.addParameter(parameter);
-                    System.out.println("Added parameter with default: " + paramName);
+                    LOGGER.info("Added parameter with default: {}", paramName);
                 }
             }
             else if (param.type.equals("identifier")) {
@@ -512,17 +522,17 @@ public class PythonASTVisitor extends ASTVisitor {
                 parameter.setKeywordOnly(keywordOnlyMode);  // Set keyword-only flag
 
                 builder.addParameter(parameter);
-                System.out.println("Added simple parameter: " + paramName +
+                LOGGER.info("Added simple parameter: " + paramName +
                         (keywordOnlyMode ? " (keyword-only)" : ""));
             }
         }
     }
     private void processReturnType(ASTUtil.ASTNode node, UMLOperation.Builder builder) {
-        System.out.println("in processReturnType()");
+        LOGGER.info("in processReturnType()");
 
         ASTUtil.ASTNode returnType = findChildByFieldName(node, "return_type");
         if (returnType != null) {
-            System.out.println("return type != null");
+            LOGGER.info("return type != null");
             String typeName = processGenericType(returnType);
             builder.returnType(new UMLType(typeName));
         } else {
@@ -533,7 +543,7 @@ public class PythonASTVisitor extends ASTVisitor {
     private String processGenericType(ASTUtil.ASTNode typeNode) {
         if (typeNode == null) return "object";
 
-        System.out.println("Processing type node: " + typeNode.type);
+        LOGGER.info("Processing type node: {}", typeNode.type);
 
         // Get the generic_type node
         ASTUtil.ASTNode genericNode = findChildByType(typeNode, "generic_type");
@@ -550,7 +560,7 @@ public class PythonASTVisitor extends ASTVisitor {
             List<String> typeParams = new ArrayList<>();
             for (ASTUtil.ASTNode child : genericNode.children) {
                 if (child.type.equals("type_parameter")) {
-                    System.out.println("Processing type parameter node, child count: " + child.children.size());
+                    LOGGER.info("Processing type parameter node, child count: {}", child.children.size());
 
                     // Collect all type nodes within this type_parameter
                     for (ASTUtil.ASTNode paramChild : child.children) {
@@ -580,30 +590,30 @@ public class PythonASTVisitor extends ASTVisitor {
             }
 
             // Debug output
-            System.out.println("Found generic type with base: " +
+            LOGGER.info("Found generic type with base: " +
                     (baseType != null ? baseType.getText(sourceCode) : "null"));
-            System.out.println("Type parameters found: " + typeParams);
+            LOGGER.info("Type parameters found: {}", typeParams);
 
             String result = sb.toString();
-            System.out.println("Generated type: " + result);
+            LOGGER.info("Generated type: {}", result);
             return result;
         } else {
             // For simple types
             ASTUtil.ASTNode identifier = findChildByType(typeNode, "identifier");
             String result = identifier != null ? identifier.getText(sourceCode) : "object";
-            System.out.println("Simple type: " + result);
+            LOGGER.info("Simple type: {}", result);
             return result;
         }
     }
 
     private void processDecorators(List<ASTUtil.ASTNode> decorators, Object target) {
-        System.out.println("Processing " + decorators.size() + " decorators");
+        LOGGER.info("Processing {} decorators", decorators.size());
         for (ASTUtil.ASTNode decorator : decorators) {
             // Get the identifier from the decorator
             ASTUtil.ASTNode identifierNode = findChildByType(decorator, "identifier");
             if (identifierNode != null) {
                 String decoratorName = identifierNode.getText(sourceCode);
-                System.out.println("Found decorator: " + decoratorName);
+                LOGGER.info("Found decorator: {}", decoratorName);
 
                 LocationInfo location = new LocationInfo(
                         filePath,
@@ -616,7 +626,7 @@ public class PythonASTVisitor extends ASTVisitor {
 
                 if (target instanceof UMLClass) {
                     ((UMLClass) target).addAnnotation(annotation);
-                    System.out.println("Added annotation to class: " + decoratorName);
+                    LOGGER.info("Added annotation to class: {}", decoratorName);
                 } else if (target instanceof UMLOperation.Builder) {
                     ((UMLOperation.Builder) target).addAnnotation(annotation);
                 }

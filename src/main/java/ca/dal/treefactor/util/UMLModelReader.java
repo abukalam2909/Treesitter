@@ -1,25 +1,30 @@
 package ca.dal.treefactor.util;
 
-import ca.dal.treefactor.model.UMLModel;
-import io.github.treesitter.jtreesitter.*;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.logging.Logger;
-import java.util.logging.Level;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import ca.dal.treefactor.model.UMLModel;
+import io.github.treesitter.jtreesitter.InputEncoding;
+import io.github.treesitter.jtreesitter.Language;
+import io.github.treesitter.jtreesitter.Node;
+import io.github.treesitter.jtreesitter.Parser;
+import io.github.treesitter.jtreesitter.Tree;
 
 public class UMLModelReader {
-    private static final Logger LOGGER = Logger.getLogger(UMLModelReader.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(UMLModelReader.class);
     private final UMLModel umlModel;
     private static final String PYTHON_EXT = "py";
     private static final String CPP_EXT = "cpp";
     private static final String JS_EXT = "js";
 
-    public UMLModelReader(Map<String, String> fileContents, Set<String> repositoryDirectories) {
+    public UMLModelReader(Map<String, String> fileContents) {
         // Initialize UMLModel with language detection
         String primaryLanguage = detectPrimaryLanguage(fileContents);
-        this.umlModel = new UMLModel(repositoryDirectories, primaryLanguage);
+        this.umlModel = new UMLModel(primaryLanguage);
         processFileContents(fileContents);
     }
 
@@ -42,17 +47,24 @@ public class UMLModelReader {
         for (Map.Entry<String, String> entry : fileContents.entrySet()) {
             String filePath = entry.getKey();
             String content = entry.getValue();
+            String extension = getFileExtension(filePath);
 
-            try {
-                Language language = TreeSitterUtil.loadLanguageForFileExtension(filePath);
-                processAST(filePath, content, language);
-            } catch (IOException e) {
-                LOGGER.log(Level.SEVERE, "Error loading language for file: " + filePath, e);
-            } catch (Exception e) {
-                LOGGER.log(Level.SEVERE, "Error processing file: " + filePath, e);
+            // Check if the file extension is one of the desired types
+            if (extension.equals("py") || extension.equals("cpp") || extension.equals("js")) {
+                try {
+                    Language language = TreeSitterUtil.loadLanguageForFileExtension(filePath);
+                    processAST(filePath, content, language);
+                } catch (IOException e) {
+                    LOGGER.error("Error loading language for file: " + filePath, e);
+                } catch (Exception e) {
+                    LOGGER.error("Error processing file: " + filePath, e);
+                }
+            } else {
+                LOGGER.warn("Skipping file with unsupported extension: " + filePath);
             }
         }
     }
+
 
     private void processAST(String filePath, String content, Language language) throws Exception {
         try (Parser parser = new Parser()) {
@@ -65,7 +77,7 @@ public class UMLModelReader {
                 if (visitor != null) {
                     visitor.visit(astRoot);
                 } else {
-                    LOGGER.warning("Unsupported file type: " + filePath);
+                    LOGGER.warn("Unsupported file type: " + filePath);
                 }
             }
         }

@@ -13,14 +13,11 @@ import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.revwalk.filter.RevFilter;
 import ca.dal.treefactor.API.GitService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 public class GitServiceImpl implements GitService {
 
     private static final String REMOTE_REFS_PREFIX = "refs/remotes/origin/";
-	Logger logger = LoggerFactory.getLogger(GitServiceImpl.class);
 
 	DefaultCommitsFilter commitsFilter = new DefaultCommitsFilter();
 

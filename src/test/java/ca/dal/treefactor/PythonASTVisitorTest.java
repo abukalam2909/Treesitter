@@ -1,21 +1,30 @@
 package ca.dal.treefactor;
 
+import java.io.IOException;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+
 import ca.dal.treefactor.model.UMLModel;
+import ca.dal.treefactor.model.core.UMLImport;
+import ca.dal.treefactor.model.core.UMLParameter;
+import ca.dal.treefactor.model.core.Visibility;
+import ca.dal.treefactor.model.elements.UMLAttribute;
 import ca.dal.treefactor.model.elements.UMLClass;
 import ca.dal.treefactor.model.elements.UMLOperation;
-import ca.dal.treefactor.model.elements.UMLAttribute;
-import ca.dal.treefactor.model.core.*;
 import ca.dal.treefactor.util.ASTUtil;
 import ca.dal.treefactor.util.PythonASTVisitor;
 import ca.dal.treefactor.util.TreeSitterUtil;
-import io.github.treesitter.jtreesitter.*;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Nested;
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.List;
-import static org.junit.jupiter.api.Assertions.*;
+import io.github.treesitter.jtreesitter.InputEncoding;
+import io.github.treesitter.jtreesitter.Language;
+import io.github.treesitter.jtreesitter.Node;
+import io.github.treesitter.jtreesitter.Parser;
+import io.github.treesitter.jtreesitter.Tree;
 
 public class PythonASTVisitorTest {
     private Language language;
@@ -26,7 +35,7 @@ public class PythonASTVisitorTest {
     @BeforeEach
     void setUp() throws IOException {
         language = TreeSitterUtil.loadLanguageForFileExtension(TEST_FILE);
-        model = new UMLModel(new HashSet<>(), "python");
+        model = new UMLModel("python");
         parser = new Parser();
         parser.setLanguage(language);
     }

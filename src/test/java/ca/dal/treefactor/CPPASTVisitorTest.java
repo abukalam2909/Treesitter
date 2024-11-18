@@ -26,7 +26,7 @@ public class CPPASTVisitorTest {
     @BeforeEach
     void setUp() throws IOException {
         language = TreeSitterUtil.loadLanguageForFileExtension(TEST_FILE);
-        model = new UMLModel(new HashSet<>(), "cpp");
+        model = new UMLModel("cpp");
         parser = new Parser();
         parser.setLanguage(language);
     }

@@ -11,7 +11,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class CPPASTVisitor extends ASTVisitor {
+    private static final Logger LOGGER = LoggerFactory.getLogger(CPPASTVisitor.class);
     private UMLClass currentClass;
     private final List<String> currentScope;
     private String currentNamespace;
@@ -27,7 +31,7 @@ public class CPPASTVisitor extends ASTVisitor {
 
     @Override
     public void visit(ASTUtil.ASTNode node) {
-        System.out.println("Visiting node type: " + node.type);
+        LOGGER.info("Visiting node type: {}", node.type);
 
         if (node.type.equals("template_declaration")) {
             // Process the function definition inside the template
@@ -43,23 +47,23 @@ public class CPPASTVisitor extends ASTVisitor {
                     }
                     break;
                 case "class_specifier":
-                    System.out.println("Processing class_specifier: " + node.getText(sourceCode));
+                    LOGGER.info("Processing class_specifier: {}", node.getText(sourceCode));
                     processClass(node);
                     break;
                 case "function_definition":
                     if (currentClass == null) {
-                        System.out.println("Processing standalone function: " + node.getText(sourceCode));
+                        LOGGER.info("Processing standalone function: {}", node.getText(sourceCode));
                         processMethod(node);
                     }
                     break;
                 case "declaration":
                     if (currentClass == null) {
-                        System.out.println("Processing declaration: " + node.getText(sourceCode));
+                        LOGGER.info("Processing declaration: {}", node.getText(sourceCode));
                         processDeclaration(node);
                     }
                     break;
                 case "field_declaration":
-                    System.out.println("Processing field_declaration: " + node.getText(sourceCode));
+                    LOGGER.info("Processing field_declaration: {}", node.getText(sourceCode));
                     processField(node);
                     break;
                 case "preproc_include":
@@ -206,11 +210,11 @@ public class CPPASTVisitor extends ASTVisitor {
 
     private void processAccessSpecifiers(ASTUtil.ASTNode node) {
         for (ASTUtil.ASTNode child : node.children) {
-            System.out.println("Processing body node: " + child.type);
+            LOGGER.info("Processing body node: {}", child.type);
 
             if (child.type.equals("access_specifier")) {
                 String specifier = child.getText(sourceCode);
-                System.out.println("Found access specifier: " + specifier);
+                LOGGER.info("Found access specifier: {}", specifier);
                 switch (specifier.toLowerCase()) {
                     case "public":
                         currentVisibility = Visibility.PUBLIC;
@@ -226,12 +230,12 @@ public class CPPASTVisitor extends ASTVisitor {
             }
 
             if (child.type.equals("function_definition")) {
-                System.out.println("Processing method within class");
+                LOGGER.info("Processing method within class");
                 processMethod(child);
             }
 
             if (child.type.equals("field_declaration")) {
-                System.out.println("Processing field within class");
+                LOGGER.info("Processing field within class");
                 processField(child);
             }
         }
@@ -239,12 +243,12 @@ public class CPPASTVisitor extends ASTVisitor {
 
     @Override
     protected void processMethod(ASTUtil.ASTNode node) {
-        System.out.println("Starting method processing");
+        LOGGER.info("Starting method processing");
 
         // Get function declarator
         ASTUtil.ASTNode declaratorNode = findFirstNodeOfType(node, "function_declarator");
         if (declaratorNode == null) {
-            System.out.println("No function declarator found");
+            LOGGER.info("No function declarator found");
             return;
         }
 
@@ -255,12 +259,12 @@ public class CPPASTVisitor extends ASTVisitor {
         }
 
         if (nameNode == null) {
-            System.out.println("No name node found");
+            LOGGER.info("No name node found");
             return;
         }
 
         String methodName = nameNode.getText(sourceCode);
-        System.out.println("Found method name: " + methodName);
+        LOGGER.info("Found method name: {}", methodName);
 
         LocationInfo location = LocationInfo.builder()
                 .filePath(filePath)
@@ -279,14 +283,14 @@ public class CPPASTVisitor extends ASTVisitor {
         if (currentClass != null) {
             operation.setClassName(currentClass.getName());
             if (methodName.equals(currentClass.getName())) {
-                System.out.println("Found constructor: " + methodName);
+                LOGGER.info("Found constructor: {}", methodName);
                 operation.setConstructor(true);
             }
             currentClass.addOperation(operation);
-            System.out.println("Added method " + methodName + " to class " + currentClass.getName());
-            System.out.println("Class now has " + currentClass.getOperations().size() + " operations");
+            LOGGER.info("Added method {}  to class {}", methodName, currentClass.getName());
+            LOGGER.info("Class now has {} operations", currentClass.getOperations().size());
         } else {
-            System.out.println("Adding standalone method: " + methodName);
+            LOGGER.info("Adding standalone method: {}", methodName);
             model.addOperation(operation);
         }
     }
@@ -325,7 +329,7 @@ public class CPPASTVisitor extends ASTVisitor {
         ASTUtil.ASTNode typeNode = findFirstNodeOfType(node, "primitive_type");
         if (typeNode != null) {
             operation.setReturnType(new UMLType(getNodeText(typeNode)));
-            System.out.println("Set return type: " + getNodeText(typeNode));
+            LOGGER.info("Set return type: {}", getNodeText(typeNode));
         }
 
         // Get function declarator
@@ -341,48 +345,48 @@ public class CPPASTVisitor extends ASTVisitor {
                     processParameter(paramNode, operation);
                 }
             }
-            System.out.println("Processed " + operation.getParameters().size() + " parameters");
+            LOGGER.info("Processed {} parameters", operation.getParameters().size());
         }
 
         // Process modifiers
         String declaratorText = declaratorNode.getText(sourceCode);
-        System.out.println("Processing declarator: " + declaratorText);
+        LOGGER.info("Processing declarator: {}", declaratorText);
 
         // Check for const modifier
         ASTUtil.ASTNode constNode = findFirstNodeOfType(declaratorNode, "type_qualifier");
         if (constNode != null && getNodeText(constNode).equals("const")) {
             operation.setConst(true);
-            System.out.println("Set const modifier");
+            LOGGER.info("Set const modifier");
         }
 
         // Check for noexcept
         ASTUtil.ASTNode noexceptNode = findFirstNodeOfType(declaratorNode, "noexcept");
         if (noexceptNode != null) {
             operation.setNoexcept(true);
-            System.out.println("Set noexcept modifier");
+            LOGGER.info("Set noexcept modifier");
         }
 
         // Check for virtual
         if (declaratorText.contains("virtual")) {
             operation.setVirtual(true);
-            System.out.println("Set virtual modifier");
+            LOGGER.info("Set virtual modifier");
         }
 
         // Check for static
         if (declaratorText.contains("static")) {
             operation.setStatic(true);
-            System.out.println("Set static modifier");
+            LOGGER.info("Set static modifier");
         }
 
         // Check if it's a pure virtual method (abstract)
         if (declaratorText.contains("= 0")) {
             operation.setAbstract(true);
-            System.out.println("Set abstract (pure virtual)");
+            LOGGER.info("Set abstract (pure virtual)");
         }
     }
 
     private void processDeclaration(ASTUtil.ASTNode node) {
-        System.out.println("Processing declaration: " + node.getText(sourceCode));
+        LOGGER.info("Processing declaration: {}", node.getText(sourceCode));
         String fullText = node.getText(sourceCode);
 
         // Check if this is a static field initialization
@@ -408,7 +412,7 @@ public class CPPASTVisitor extends ASTVisitor {
         if (nameNode == null) return;
         String methodName = getNodeText(nameNode);
 
-        System.out.println("Processing method declaration: " + methodName);
+        LOGGER.info("Processing method declaration: {}", methodName);
 
         // Create operation
         LocationInfo location = LocationInfo.builder()
@@ -426,13 +430,13 @@ public class CPPASTVisitor extends ASTVisitor {
 
         // Check virtual
         if (fullText.contains("virtual")) {
-            System.out.println("Setting virtual modifier");
+            LOGGER.info("Setting virtual modifier");
             operation.setVirtual(true);
         }
 
         // Check pure virtual (abstract)
         if (fullText.contains("= 0")) {
-            System.out.println("Setting abstract modifier");
+            LOGGER.info("Setting abstract modifier");
             operation.setAbstract(true);
         }
 
@@ -447,7 +451,7 @@ public class CPPASTVisitor extends ASTVisitor {
             }
         }
 
-        System.out.println("Adding method declaration to model: " + methodName);
+        LOGGER.info("Adding method declaration to model: {}", methodName);
         model.addOperation(operation);
     }
 
@@ -857,10 +861,10 @@ public class CPPASTVisitor extends ASTVisitor {
         // Store the final value to use in lambda
         final String value = fieldParts[1].replace(";", "").trim();
 
-        System.out.println("Found static field initialization:");
-        System.out.println("Class: " + className);
-        System.out.println("Field: " + fieldName);
-        System.out.println("Value: " + value);
+        LOGGER.info("Found static field initialization:");
+        LOGGER.info("Class: {}", className);
+        LOGGER.info("Field: {}", fieldName);
+        LOGGER.info("Value: {}", value);
 
         // Find the class and update the field
         UMLClass classNode = model.getClass(className).orElse(null);
@@ -870,7 +874,7 @@ public class CPPASTVisitor extends ASTVisitor {
                     .findFirst()
                     .ifPresent(attr -> {
                         attr.setInitialValue(value);
-                        System.out.println("Updated initial value for " + fieldName + " to " + value);
+                        LOGGER.info("Updated initial value for {} to {}", fieldName, value);
                     });
         }
     }
@@ -896,7 +900,7 @@ public class CPPASTVisitor extends ASTVisitor {
         String fieldName = nameNode.getText(sourceCode);
         String fieldType = typeNode.getText(sourceCode);
 
-        System.out.println("Processing field: " + fieldType + " " + fieldName);
+        LOGGER.info("Processing field: {} {}", fieldType, fieldName);
 
         LocationInfo locationInfo = LocationInfo.builder()
                 .filePath(filePath)
@@ -913,7 +917,7 @@ public class CPPASTVisitor extends ASTVisitor {
         // Check for static modifier
         ASTUtil.ASTNode storageNode = findFirstNodeOfType(node, "storage_class_specifier");
         if (storageNode != null && storageNode.getText(sourceCode).equals("static")) {
-            System.out.println("Found static field: " + fieldName);
+            LOGGER.info("Found static field: {}", fieldName);
             attribute.setStatic(true);
         }
 
@@ -921,12 +925,12 @@ public class CPPASTVisitor extends ASTVisitor {
         ASTUtil.ASTNode initNode = findFirstNodeOfType(node, "initializer");
         if (initNode != null) {
             String initialValue = initNode.getText(sourceCode);
-            System.out.println("Found initial value: " + initialValue);
+            LOGGER.info("Found initial value: {}", initialValue);
             attribute.setInitialValue(initialValue);
         }
 
         currentClass.addAttribute(attribute);
-        System.out.println("Added attribute " + fieldName + " to class " + currentClass.getName());
+        LOGGER.info("Added attribute {} to class {}", fieldName, currentClass.getName());
     }
 
     private void processFieldInitializer(ASTUtil.ASTNode node, UMLAttribute attribute) {
@@ -946,7 +950,7 @@ public class CPPASTVisitor extends ASTVisitor {
 
     private void processExternalFieldDeclaration(ASTUtil.ASTNode node) {
         String fullText = getNodeText(node);
-        System.out.println("Full declaration text: " + fullText);
+        LOGGER.info("Full declaration text: {}", fullText);
 
         ASTUtil.ASTNode initNode = findFirstNodeOfType(node, "initializer");
         if (initNode != null) {
@@ -1069,7 +1073,7 @@ public class CPPASTVisitor extends ASTVisitor {
 
             // Build full type including templates
             String paramType = buildFullType(param);
-            System.out.println("Built parameter type: " + paramType);
+            LOGGER.info("Built parameter type: {}", paramType);
 
             // Get parameter name
             String paramName = getParameterName(param);
@@ -1090,7 +1094,7 @@ public class CPPASTVisitor extends ASTVisitor {
                 String defaultValue = getDefaultValue(defaultValueNode);
                 if (defaultValue != null) {
                     parameter.setDefaultValue(defaultValue);
-                    System.out.println("Set default value: " + defaultValue);
+                    LOGGER.info("Set default value: {}", defaultValue);
                 }
             }
 
@@ -1196,12 +1200,12 @@ public class CPPASTVisitor extends ASTVisitor {
 
     @Override
     protected void processClass(ASTUtil.ASTNode node) {
-        System.out.println("Starting class processing");
+        LOGGER.info("Starting class processing");
         ASTUtil.ASTNode nameNode = findFirstNodeOfType(node, "type_identifier");
         if (nameNode == null) return;
 
         String className = nameNode.getText(sourceCode);
-        System.out.println("Found class: " + className);
+        LOGGER.info("Found class: {}", className);
 
         LocationInfo location = LocationInfo.builder()
                 .filePath(filePath)
@@ -1211,7 +1215,7 @@ public class CPPASTVisitor extends ASTVisitor {
                 .build();
 
         currentClass = new UMLClass(extractModuleName(filePath), className, location);
-        System.out.println("Created new UMLClass: " + currentClass.getName());
+        LOGGER.info("Created new UMLClass: {}", currentClass.getName());
 
         // Process inheritance
         processInheritance(node);
@@ -1220,18 +1224,18 @@ public class CPPASTVisitor extends ASTVisitor {
         ASTUtil.ASTNode bodyNode = findFirstNodeOfType(node, "field_declaration_list");
         if (bodyNode != null) {
             currentVisibility = Visibility.PRIVATE; // C++ default
-            System.out.println("Processing class body");
+            LOGGER.info("Processing class body");
             processAccessSpecifiers(bodyNode);
         }
 
-        System.out.println("Adding class to model with " + currentClass.getOperations().size() + " operations");
+        LOGGER.info("Adding class to model with {} operations", currentClass.getOperations().size());
         model.addClass(currentClass);
 
-        System.out.println("Model state after adding class:");
-        System.out.println("Total classes: " + model.getClasses().size());
-        System.out.println("Total operations: " + model.getOperations().size());
+        LOGGER.info("Model state after adding class:");
+        LOGGER.info("Total classes: {}", model.getClasses().size());
+        LOGGER.info("Total operations: {}", model.getOperations().size());
         if (!currentClass.getSuperclasses().isEmpty()) {
-            System.out.println("Superclasses: " + currentClass.getSuperclasses());
+            LOGGER.info("Superclasses: {}", currentClass.getSuperclasses());
         }
 
         currentClass = null;  // Reset current class
@@ -1241,28 +1245,28 @@ public class CPPASTVisitor extends ASTVisitor {
         // Find base class clause
         ASTUtil.ASTNode baseClassClause = findFirstNodeOfType(node, "base_class_clause");
         if (baseClassClause == null) {
-            System.out.println("No inheritance found");
+            LOGGER.info("No inheritance found");
             return;
         }
 
-        System.out.println("Processing base class clause: " + baseClassClause.getText(sourceCode));
+        LOGGER.info("Processing base class clause: {}", baseClassClause.getText(sourceCode));
 
         // Process each base class
         for (ASTUtil.ASTNode child : baseClassClause.children) {
             if (child.type.equals("type_identifier")) {
                 String baseClassName = child.getText(sourceCode);
-                System.out.println("Found base class: " + baseClassName);
+                LOGGER.info("Found base class: {}", baseClassName);
                 currentClass.addSuperclass(baseClassName);
             }
             // Handle access specifier if present (public/protected/private inheritance)
             if (child.type.equals("access_specifier")) {
-                System.out.println("Found inheritance access specifier: " + child.getText(sourceCode));
+                LOGGER.info("Found inheritance access specifier: {}", child.getText(sourceCode));
             }
         }
 
         // Check if we found and added any superclasses
         if (!currentClass.getSuperclasses().isEmpty()) {
-            System.out.println("Added superclasses: " + currentClass.getSuperclasses());
+            LOGGER.info("Added superclasses: {}", currentClass.getSuperclasses());
         }
     }
     private String extractModuleName(String filePath) {

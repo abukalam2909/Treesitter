@@ -1,15 +1,21 @@
 package ca.dal.treefactor.model;
 
-import ca.dal.treefactor.model.elements.UMLClass;
-import ca.dal.treefactor.model.elements.UMLOperation;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+
 import ca.dal.treefactor.model.core.UMLComment;
 import ca.dal.treefactor.model.core.UMLImport;
-
-import java.util.*;
+import ca.dal.treefactor.model.elements.UMLClass;
+import ca.dal.treefactor.model.elements.UMLOperation;
 
 public class UMLModel {
     // Core data structures
-    private final Set<String> repositoryDirectories;
     private final List<UMLClass> classes;
     private final List<UMLOperation> operations;  // For standalone functions/methods
     private final Map<String, List<UMLComment>> commentMap;
@@ -18,8 +24,7 @@ public class UMLModel {
     private final Map<String, String> packageMap;  // For modules/namespaces
     private final String language;  // "python", "javascript", or "cpp"
 
-    public UMLModel(Set<String> repositoryDirectories, String language) {
-        this.repositoryDirectories = repositoryDirectories;
+    public UMLModel(String language) {
         this.language = language.toLowerCase();
         this.classes = new ArrayList<>();
         this.operations = new ArrayList<>();
@@ -144,19 +149,6 @@ public class UMLModel {
         return new HashSet<>(sourceFileContents.keySet());
     }
 
-    // Repository operations
-    public void addRepositoryDirectory(String directory) {
-        repositoryDirectories.add(directory);
-    }
-
-    public void removeRepositoryDirectory(String directory) {
-        repositoryDirectories.remove(directory);
-    }
-
-    public Set<String> getRepositoryDirectories() {
-        return new HashSet<>(repositoryDirectories);
-    }
-
     // Query operations
     public List<UMLClass> getClassesInFile(String filePath) {
         return classes.stream()
@@ -257,7 +249,6 @@ public class UMLModel {
         sb.append("Number of classes: ").append(getNumberOfClasses()).append("\n");
         sb.append("Number of operations: ").append(getNumberOfOperations()).append("\n");
         sb.append("Number of files: ").append(getNumberOfFiles()).append("\n");
-        sb.append("Repository directories: ").append(repositoryDirectories).append("\n");
 
         if (!operations.isEmpty()) {
             sb.append("\nStandalone Operations:\n");
@@ -291,15 +282,13 @@ public class UMLModel {
                 Objects.equals(operations, other.operations) &&
                 Objects.equals(commentMap, other.commentMap) &&
                 Objects.equals(importMap, other.importMap) &&
-                Objects.equals(repositoryDirectories, other.repositoryDirectories) &&
                 Objects.equals(sourceFileContents, other.sourceFileContents) &&
                 Objects.equals(packageMap, other.packageMap);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(language, classes, operations, commentMap, importMap,
-                repositoryDirectories, sourceFileContents, packageMap);
+        return Objects.hash(language, classes, operations, commentMap, importMap, sourceFileContents, packageMap);
     }
 
     public UMLClass getClassByName(String className) {

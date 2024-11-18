@@ -2,7 +2,12 @@ package ca.dal.treefactor.model.core;
 
 import java.util.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
 public class UMLParameter {
+    private static final Logger LOGGER = LoggerFactory.getLogger(UMLParameter.class);
     private final String name;
     private final UMLType type;
     private final List<UMLAnnotation> annotations;
@@ -121,8 +126,8 @@ public class UMLParameter {
             this.isDefaultValuePresent = true;
 
             // Debug logging
-            System.out.println("UMLParameter: Setting default value to: " + this.defaultValue);
-            System.out.println("UMLParameter: isDefaultValuePresent = " + this.isDefaultValuePresent);
+            LOGGER.debug("UMLParameter: Setting default value to: {}", this.defaultValue);
+            LOGGER.debug("UMLParameter: isDefaultValuePresent = {}", this.isDefaultValuePresent);
         } else {
             this.defaultValue = null;
             this.isDefaultValuePresent = false;
