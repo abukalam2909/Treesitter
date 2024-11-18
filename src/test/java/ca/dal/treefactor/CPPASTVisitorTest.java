@@ -349,6 +349,28 @@ public class CPPASTVisitorTest {
             assertTrue(params.get(1).isRValueReference(), "Second parameter should be rvalue reference");
             assertEquals("std::vector<int>", params.get(1).getType().getTypeName());
         }
+
+        @Test
+        void testParameterInsideClass() throws Exception {
+            String code = """
+            class Square {
+            public:
+                // Renamed parameter for better clarity: s -> sideLength (Renamed Variables)
+                int calculatePerimeter(int sideLength) {
+                    return 4 * sideLength;
+                }
+            };
+            """;
+            processCode(code);
+
+            UMLClass calc = model.getClasses().get(0);
+            UMLOperation add = calc.getOperations().get(0);
+            List<UMLParameter> params = add.getParameters();
+
+            assertEquals(1, params.size());
+            assertEquals("int", params.get(0).getType().getTypeName());
+            assertEquals("sideLength", params.get(0).getName());
+        }
     }
 
     // Helper method to process code
