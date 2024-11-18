@@ -41,11 +41,15 @@ public class PythonASTVisitor extends ASTVisitor {
             case "class_definition":
             case "decorated_definition":
                 processClass(node);
-                break;
-            case "function_definition":
-                processMethod(node);
-                // Don't visit children here - method handles its own body
+                // Don't visit children for class definitions since we handle them in processClass
                 return;
+            case "function_definition":
+                // Only process standalone functions here
+                // Methods inside classes are handled in processClass
+                if (currentClass == null) {
+                    processMethod(node);
+                }
+                break;
             case "assignment":
                 processField(node);
                 break;
@@ -61,13 +65,6 @@ public class PythonASTVisitor extends ASTVisitor {
         for(ASTUtil.ASTNode child : node.children) {
             visit(child);
         }
-    }
-
-    @Override
-    protected void processModule(ASTUtil.ASTNode node) {
-        // Extract module name from file path
-        String moduleName = extractModuleName(filePath);
-        model.addPackage(filePath, moduleName);
     }
 
     @Override
@@ -120,14 +117,45 @@ public class PythonASTVisitor extends ASTVisitor {
         // Process docstring
         processDocstring(classNode, currentClass);
 
-        // Add to scope and process body
+// Add to scope and process body
         currentScope.add(className);
         ASTUtil.ASTNode body = findChildByType(classNode, "block");
         if (body != null) {
+            // Print AST for debugging
+            LOGGER.info("Class body AST:");
+            LOGGER.info(ASTUtil.printAST(body, 0));
+
+            // Process body contents directly
             for (ASTUtil.ASTNode child : body.children) {
-                visit(child);
+                LOGGER.info("Processing class body node: {}", child.type);
+                if (child.type.equals("function_definition")) {
+                    processMethod(child);
+                } else if (child.type.equals("decorated_definition")) {
+                    ASTUtil.ASTNode methodNode = findChildByType(child, "function_definition");
+                    if (methodNode != null) {
+                        processMethod(child);
+                    }
+                } else if (child.type.equals("expression_statement")) {
+                    // Check if it's an assignment
+                    ASTUtil.ASTNode assignmentNode = findChildByType(child, "assignment");
+                    if (assignmentNode != null) {
+                        LOGGER.info("Found assignment in class body: {}", assignmentNode.getText(sourceCode));
+                        processField(assignmentNode);
+                    }
+                    // Handle docstrings
+                    else if (child.children.size() == 1 &&
+                            child.children.get(0).type.equals("string")) {
+                        processDocstring(child, currentClass);
+                    }
+                } else if (child.type.equals("assignment")) {  // Direct assignment case
+                    LOGGER.info("Found direct assignment in class body: {}", child.getText(sourceCode));
+                    processField(child);
+                } else if (child.type.equals("class_definition")) {
+                    processClass(child);
+                }
             }
         }
+
         currentScope.remove(currentScope.size() - 1);
 
         // Finalize class processing
@@ -136,6 +164,24 @@ public class PythonASTVisitor extends ASTVisitor {
 
         LOGGER.info("Finished processing class: {}", className);
     }
+
+    // Add this as a separate helper method in the class
+    private Visibility determineVisibility(String name) {
+        if (name.startsWith("__")) {
+            return Visibility.PRIVATE;
+        } else if (name.startsWith("_")) {
+            return Visibility.PROTECTED;
+        }
+        return Visibility.PUBLIC;
+    }
+
+    @Override
+    protected void processModule(ASTUtil.ASTNode node) {
+        // Extract module name from file path
+        String moduleName = extractModuleName(filePath);
+        model.addPackage(filePath, moduleName);
+    }
+
 
     @Override
     protected void processMethod(ASTUtil.ASTNode node) {
@@ -197,59 +243,56 @@ public class PythonASTVisitor extends ASTVisitor {
             return;
         }
 
-        // Handle assignments
         if (node.type.equals("assignment")) {
             ASTUtil.ASTNode leftNode = findChildByFieldName(node, "left");
             LOGGER.info("Left node type: {}", (leftNode != null ? leftNode.type : "null"));
 
             if (leftNode != null) {
-                // Print AST structure for debugging
-                LOGGER.info("Assignment structure:");
-                LOGGER.info(ASTUtil.printAST(node, 0));
-
                 if (leftNode.type.equals("attribute")) {
                     // Handle instance attributes (self.attribute assignments in methods)
                     ASTUtil.ASTNode objectNode = findChildByFieldName(leftNode, "object");
-                    if (objectNode != null && objectNode.getText(sourceCode).equals("self")) {
-                        // Get the attribute name
-                        ASTUtil.ASTNode attributeNode = findChildByFieldName(leftNode, "attribute");
-                        if (attributeNode != null) {
-                            String fieldName = attributeNode.getText(sourceCode);
-                            LOGGER.info("Found instance attribute: {}", fieldName);
+                    ASTUtil.ASTNode attributeNode = findChildByFieldName(leftNode, "attribute");
 
-                            LocationInfo locationInfo = new LocationInfo(
-                                    filePath,
-                                    node.startPoint,
-                                    node.endPoint,
-                                    CodeElementType.FIELD_DECLARATION
-                            );
+                    if (objectNode != null &&
+                            attributeNode != null &&
+                            objectNode.getText(sourceCode).equals("self")) {
 
-                            UMLAttribute attribute = new UMLAttribute(
-                                    fieldName,
-                                    new UMLType("object"),
-                                    locationInfo
-                            );
+                        String fieldName = attributeNode.getText(sourceCode);
+                        LOGGER.info("Found instance attribute: {}", fieldName);
 
-                            // Instance attributes are not static
-                            attribute.setStatic(false);
+                        LocationInfo locationInfo = new LocationInfo(
+                                filePath,
+                                node.startPoint,
+                                node.endPoint,
+                                CodeElementType.FIELD_DECLARATION
+                        );
 
-                            // Set visibility based on name convention
-                            attribute.setVisibility(determineVisibility(fieldName));
+                        UMLAttribute attribute = new UMLAttribute(
+                                fieldName,
+                                new UMLType("object"),
+                                locationInfo
+                        );
 
-                            // Get initial value if present
-                            ASTUtil.ASTNode rightNode = findChildByFieldName(node, "right");
-                            if (rightNode != null) {
-                                attribute.setInitialValue(rightNode.getText(sourceCode));
-                            }
+                        // Instance attributes are not static
+                        attribute.setStatic(false);
 
-                            currentClass.addAttribute(attribute);
-                            LOGGER.info("Added instance attribute: {}", fieldName);
+                        // Set visibility based on name convention
+                        attribute.setVisibility(determineVisibility(fieldName));
+
+                        // Get initial value if present
+                        ASTUtil.ASTNode rightNode = findChildByFieldName(node, "right");
+                        if (rightNode != null) {
+                            attribute.setInitialValue(rightNode.getText(sourceCode));
+                            LOGGER.info("Set initial value: {}", rightNode.getText(sourceCode));
                         }
+
+                        currentClass.addAttribute(attribute);
+                        LOGGER.info("Added instance attribute: {}", fieldName);
                     }
                 } else if (leftNode.type.equals("identifier") && !isInMethod()) {
                     // Handle class attributes (direct assignments in class body)
                     String fieldName = leftNode.getText(sourceCode);
-                    LOGGER.info("Found class attribute: ", fieldName);
+                    LOGGER.info("Found class attribute: {}", fieldName);
 
                     LocationInfo locationInfo = new LocationInfo(
                             filePath,
@@ -274,14 +317,11 @@ public class PythonASTVisitor extends ASTVisitor {
                     ASTUtil.ASTNode rightNode = findChildByFieldName(node, "right");
                     if (rightNode != null) {
                         attribute.setInitialValue(rightNode.getText(sourceCode));
-                        LOGGER.info("Set initial value: ", rightNode.getText(sourceCode));
+                        LOGGER.info("Set initial value: {}", rightNode.getText(sourceCode));
                     }
 
                     currentClass.addAttribute(attribute);
                     LOGGER.info("Added class attribute: {}", fieldName);
-                } else {
-                    LOGGER.info("Not processing field: {}",
-                            (leftNode.type.equals("identifier") ? "in method" : "not identifier or attribute"));
                 }
             }
         }
@@ -383,14 +423,6 @@ public class PythonASTVisitor extends ASTVisitor {
         return aliasNode != null ? aliasNode.getText(sourceCode) : null;
     }
 
-    private Visibility determineVisibility(String name) {
-        if (name.startsWith("__")) {
-            return Visibility.PRIVATE;
-        } else if (name.startsWith("_")) {
-            return Visibility.PROTECTED;
-        }
-        return Visibility.PUBLIC;
-    }
 
     private void processParameters(ASTUtil.ASTNode node, UMLOperation.Builder builder) {
         ASTUtil.ASTNode parameters = findChildByType(node, "parameters");
