@@ -238,4 +238,47 @@ public class CppRenameParameterTest {
         assertEquals("lname", rename2.getOriginalParameter().getName());
         assertEquals("lastname", rename2.getRenamedParameter().getName());
     }
+
+    @Test
+    public void RenameParameterInsideClass() {
+        Map<String, String> fileContentsBefore = new HashMap<>();
+        String fileContentsBeforeString = """
+            class Square {
+                      public:
+                      int calculatePerimeter(int s) {
+                        return 4 * s;
+                      }
+                    };
+        """;
+        fileContentsBefore.put("example.cpp", fileContentsBeforeString);
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
+        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+
+        Map<String, String> fileContentsAfter = new HashMap<>();
+        String fileContentsAfterString = """
+            class Square {
+                      public:
+                      // Renamed parameter for better clarity: s -> sideLength (Renamed Variables)
+                      int calculatePerimeter(int sideLength) {
+                        return 4 * sideLength;
+                      }
+                    };
+        """;
+        fileContentsAfter.put("example.cpp", fileContentsAfterString);
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
+        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+
+        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
+        List<Refactoring> refactorings = modelDiff.detectRefactorings();
+
+        assertEquals(1, refactorings.size());
+        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
+
+        RenameParameterRefactoring rename1 = (RenameParameterRefactoring) refactorings.get(0);
+        assertEquals("s", rename1.getOriginalParameter().getName());
+        assertEquals("sideLength", rename1.getRenamedParameter().getName());
+
+    }
+
+
 }

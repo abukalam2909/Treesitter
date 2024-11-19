@@ -236,4 +236,41 @@ public class PythonRenameParameterTest {
         assertEquals("p", rename3.getOriginalParameter().getName());
         assertEquals("person", rename3.getRenamedParameter().getName());
     }
+
+    @Test
+    public void RenameParameterInsideClass() {
+        Map<String, String> fileContentsBefore = new HashMap<>();
+        String fileContentsBeforeString = """
+            class Square:
+               def calculate_perimeter(self, side_length):
+                   return 4 * side_length
+                   """;
+        fileContentsBefore.put("example.py", fileContentsBeforeString);
+        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
+        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+
+        Map<String, String> fileContentsAfter = new HashMap<>();
+        String fileContentsAfterString = """
+            class Square:
+               def calculate_perimeter(self, s):
+                   return 4 * s
+                   """;
+        fileContentsAfter.put("example.py", fileContentsAfterString);
+        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
+        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+
+        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
+        List<Refactoring> refactorings = modelDiff.detectRefactorings();
+
+        // Verify refactoring detection
+        assertEquals(1, refactorings.size(), "Should detect exactly one parameter rename");
+        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring,
+                "Should be a parameter rename refactoring");
+
+        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
+        assertEquals("side_length", rename.getOriginalParameter().getName(),
+                "Original parameter should be 'side_length'");
+        assertEquals("s", rename.getRenamedParameter().getName(),
+                "Renamed parameter should be 's'");
+    }
 }

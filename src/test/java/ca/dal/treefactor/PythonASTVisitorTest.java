@@ -173,6 +173,13 @@ public class PythonASTVisitorTest {
                 """;
 
             processCode(code);
+            // Print AST for debugging
+            try (Tree tree = parser.parse(code, InputEncoding.UTF_8).orElseThrow()) {
+                Node rootNode = tree.getRootNode();
+                ASTUtil.ASTNode astNode = ASTUtil.buildASTWithCursor(rootNode);
+                System.out.println("AST Structure:");
+                System.out.println(ASTUtil.printAST(astNode, 0));
+            }
 
             UMLClass counter = model.getClasses().get(0);
             List<UMLAttribute> attributes = counter.getAttributes();

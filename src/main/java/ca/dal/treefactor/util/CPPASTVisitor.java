@@ -252,18 +252,20 @@ public class CPPASTVisitor extends ASTVisitor {
             return;
         }
 
-        // Get function name - handle both identifier and field_identifier
-        ASTUtil.ASTNode nameNode = findFirstNodeOfType(declaratorNode, "identifier");
-        if (nameNode == null) {
-            nameNode = findFirstNodeOfType(declaratorNode, "field_identifier");
+        // Get direct child identifier of declarator (this will be the method name)
+        String methodName = null;
+        for (ASTUtil.ASTNode child : declaratorNode.children) {
+            if (child.type.equals("identifier") || child.type.equals("field_identifier")) {
+                methodName = child.getText(sourceCode);
+                break;
+            }
         }
 
-        if (nameNode == null) {
-            LOGGER.info("No name node found");
+        if (methodName == null) {
+            LOGGER.info("No method name found");
             return;
         }
 
-        String methodName = nameNode.getText(sourceCode);
         LOGGER.info("Found method name: {}", methodName);
 
         LocationInfo location = LocationInfo.builder()
@@ -274,7 +276,7 @@ public class CPPASTVisitor extends ASTVisitor {
                 .build();
 
         UMLOperation operation = new UMLOperation(methodName, location);
-        operation.setVisibility(currentVisibility); // Set visibility from current context
+        operation.setVisibility(currentVisibility);
 
         // Process method details
         processMethodDetails(node, operation);
@@ -287,14 +289,13 @@ public class CPPASTVisitor extends ASTVisitor {
                 operation.setConstructor(true);
             }
             currentClass.addOperation(operation);
-            LOGGER.info("Added method {}  to class {}", methodName, currentClass.getName());
+            LOGGER.info("Added method {} to class {}", methodName, currentClass.getName());
             LOGGER.info("Class now has {} operations", currentClass.getOperations().size());
         } else {
             LOGGER.info("Adding standalone method: {}", methodName);
             model.addOperation(operation);
         }
     }
-
 
     private void processMethodModifiers(ASTUtil.ASTNode declaratorNode, UMLOperation.Builder builder) {
         // Check for const qualifier

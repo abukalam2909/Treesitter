@@ -27,18 +27,24 @@ public class ParameterMapper {
         List<UMLParameter> params1 = operation1.getParameters();
         List<UMLParameter> params2 = operation2.getParameters();
 
-        // Skip 'self' parameter in Python methods
-        int startIndex = shouldSkipSelfParameter(params1, params2) ? 1 : 0;
+        // Keep track of parameter renames to avoid duplicates
+        Set<String> processedParams = new HashSet<>();
+
+        // Skip 'self' parameter in Python methods, but not for C++
+        boolean isPython = operation1.getLocationInfo().getFilePath().endsWith(".py");
+        int startIndex = isPython && shouldSkipSelfParameter(params1, params2) ? 1 : 0;
 
         // First pass: Match parameters by position
         for (int i = startIndex; i < params1.size() && i < params2.size(); i++) {
             UMLParameter param1 = params1.get(i);
             UMLParameter param2 = params2.get(i);
 
-            if (!param1.getName().equals(param2.getName())) {
+            String paramKey = param1.getName() + "->" + param2.getName();
+            if (!param1.getName().equals(param2.getName()) && !processedParams.contains(paramKey)) {
                 // Parameter rename detected
                 parameterReplacements.put(param1.getName(), param2.getName());
                 refactorings.add(new RenameParameterRefactoring(param1, param2, operation2));
+                processedParams.add(paramKey); // Mark this rename as processed
             } else if (!param1.getType().equals(param2.getType())) {
                 // Parameter type change detected
                 refactorings.add(new ChangeParameterTypeRefactoring(param1, param2, operation2));
@@ -54,7 +60,6 @@ public class ParameterMapper {
                 refactorings.add(new AddParameterRefactoring(addedParam, operation2, defaultValue));
             }
         }
-        // Note: Remove parameter detection would go here if needed
     }
 
     private boolean shouldSkipSelfParameter(List<UMLParameter> params1, List<UMLParameter> params2) {
