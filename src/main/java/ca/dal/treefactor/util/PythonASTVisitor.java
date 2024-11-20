@@ -478,142 +478,162 @@ public class PythonASTVisitor extends ASTVisitor {
         return aliasNode != null ? aliasNode.getText(sourceCode) : null;
     }
 
-
+    /**
+     * Processes method parameters, handling different types of parameters including:
+     * - Simple parameters
+     * - Typed parameters
+     * - Parameters with default values
+     * - Keyword-only parameters
+     */
     private void processParameters(ASTUtil.ASTNode node, UMLOperation.Builder builder) {
         ASTUtil.ASTNode parameters = findChildByType(node, "parameters");
         if (parameters == null) return;
 
-        // Flag to track if we've seen a keyword separator
         boolean keywordOnlyMode = false;
 
         for (ASTUtil.ASTNode param : parameters.children) {
             LOGGER.info("Parameter node type: {}", param.type);
 
-            // Check for keyword separator (*)
             if (param.type.equals("keyword_separator")) {
                 LOGGER.info("Found keyword separator");
                 keywordOnlyMode = true;
                 continue;
             }
 
-            if (param.type.equals("typed_default_parameter")) {
-                // Handle parameters with both type and default value
-                ASTUtil.ASTNode nameNode = findChildByFieldName(param, "name");
-                ASTUtil.ASTNode typeNode = findChildByFieldName(param, "type");
-                ASTUtil.ASTNode valueNode = findChildByFieldName(param, "value");
-
-                if (nameNode != null) {
-                    String paramName = nameNode.getText(sourceCode);
-                    UMLType paramType = new UMLType("object"); // Default type
-
-                    if (typeNode != null) {
-                        String typeName = processGenericType(typeNode);
-                        paramType = new UMLType(typeName);
-                    }
-
-                    LocationInfo paramLocation = new LocationInfo(
-                            filePath,
-                            param.startPoint,
-                            param.endPoint,
-                            CodeElementType.PARAMETER_DECLARATION
-                    );
-
-                    UMLParameter parameter = new UMLParameter(paramName, paramType, paramLocation);
-
-                    if (valueNode != null) {
-                        parameter.setDefaultValue(valueNode.getText(sourceCode));
-                        LOGGER.info("Set default value: {}", valueNode.getText(sourceCode));
-                    }
-                    parameter.setKeywordOnly(keywordOnlyMode);  // Set keyword-only flag
-                    builder.addParameter(parameter);
-                    LOGGER.info("Added typed parameter with default: {}", paramName +
-                            " type: " + paramType.getTypeName() +
-                            (keywordOnlyMode ? " (keyword-only)" : ""));
-                }
-            }
-            else if (param.type.equals("typed_parameter")) {
-                // Handle typed parameters
-                ASTUtil.ASTNode nameNode = findChildByType(param, "identifier");
-                ASTUtil.ASTNode typeNode = findChildByType(param, "type");
-
-                if (nameNode != null) {
-                    String paramName = nameNode.getText(sourceCode);
-                    UMLType paramType = new UMLType("object"); // Default type
-
-                    if (typeNode != null) {
-                        String typeName = processGenericType(typeNode);
-                        paramType = new UMLType(typeName);
-                    }
-
-                    LocationInfo paramLocation = new LocationInfo(
-                            filePath,
-                            param.startPoint,
-                            param.endPoint,
-                            CodeElementType.PARAMETER_DECLARATION
-                    );
-
-                    UMLParameter parameter = new UMLParameter(paramName, paramType, paramLocation);
-                    parameter.setKeywordOnly(keywordOnlyMode);  // Set keyword-only flag
-
-                    builder.addParameter(parameter);
-                    LOGGER.info("Added typed parameter: {}", paramName +
-                            " with type: " + paramType.getTypeName() +
-                            (keywordOnlyMode ? " (keyword-only)" : ""));
-                }
-            }
-            else if (param.type.equals("default_parameter")) {
-                // Handle parameters with default values
-                ASTUtil.ASTNode nameNode = findChildByFieldName(param, "name");
-                ASTUtil.ASTNode valueNode = findChildByFieldName(param, "value");
-
-                if (nameNode != null) {
-                    String paramName = nameNode.getText(sourceCode);
-                    LocationInfo paramLocation = new LocationInfo(
-                            filePath,
-                            param.startPoint,
-                            param.endPoint,
-                            CodeElementType.PARAMETER_DECLARATION
-                    );
-
-                    UMLParameter parameter = new UMLParameter(
-                            paramName,
-                            new UMLType("object"),
-                            paramLocation
-                    );
-
-                    if (valueNode != null) {
-                        parameter.setDefaultValue(valueNode.getText(sourceCode));
-                        LOGGER.info("Set default value: {}", valueNode.getText(sourceCode));
-                    }
-
-                    parameter.setKeywordOnly(keywordOnlyMode);  // Set keyword-only flag
-                    builder.addParameter(parameter);
-                    LOGGER.info("Added parameter with default: {}", paramName);
-                }
-            }
-            else if (param.type.equals("identifier")) {
-                // Handle simple parameters without type or default value
-                String paramName = param.getText(sourceCode);
-                LocationInfo paramLocation = new LocationInfo(
-                        filePath,
-                        param.startPoint,
-                        param.endPoint,
-                        CodeElementType.PARAMETER_DECLARATION
-                );
-
-                UMLParameter parameter = new UMLParameter(
-                        paramName,
-                        new UMLType("object"),
-                        paramLocation
-                );
-                parameter.setKeywordOnly(keywordOnlyMode);  // Set keyword-only flag
-
-                builder.addParameter(parameter);
-                LOGGER.info("Added simple parameter: " + paramName +
-                        (keywordOnlyMode ? " (keyword-only)" : ""));
-            }
+            processParameter(param, builder, keywordOnlyMode);
         }
     }
+
+    /**
+     * Routes parameter processing based on parameter type
+     */
+    private void processParameter(ASTUtil.ASTNode param, UMLOperation.Builder builder, boolean keywordOnlyMode) {
+        switch (param.type) {
+            case "typed_default_parameter":
+                processTypedDefaultParameter(param, builder, keywordOnlyMode);
+                break;
+            case "typed_parameter":
+                processTypedParameter(param, builder, keywordOnlyMode);
+                break;
+            case "default_parameter":
+                processDefaultParameter(param, builder, keywordOnlyMode);
+                break;
+            case "identifier":
+                processSimpleParameter(param, builder, keywordOnlyMode);
+                break;
+        }
+    }
+
+    /**
+     * Processes a parameter with both type annotation and default value
+     * Example: def func(param: str = "default")
+     */
+    private void processTypedDefaultParameter(ASTUtil.ASTNode param, UMLOperation.Builder builder, boolean keywordOnlyMode) {
+        ASTUtil.ASTNode nameNode = findChildByFieldName(param, "name");
+        if (nameNode == null) return;
+
+        String paramName = nameNode.getText(sourceCode);
+        UMLType paramType = getParameterType(param);
+        UMLParameter parameter = createParameter(param, paramName, paramType);
+
+        setParameterProperties(parameter, param, keywordOnlyMode);
+        builder.addParameter(parameter);
+
+        LOGGER.info("Added typed parameter with default: {} type: {} {}",
+                paramName, paramType.getTypeName(),
+                keywordOnlyMode ? "(keyword-only)" : "");
+    }
+
+    /**
+     * Processes a parameter with type annotation only
+     * Example: def func(param: str)
+     */
+    private void processTypedParameter(ASTUtil.ASTNode param, UMLOperation.Builder builder, boolean keywordOnlyMode) {
+        ASTUtil.ASTNode nameNode = findChildByType(param, "identifier");
+        if (nameNode == null) return;
+
+        String paramName = nameNode.getText(sourceCode);
+        UMLType paramType = getParameterType(param);
+        UMLParameter parameter = createParameter(param, paramName, paramType);
+
+        parameter.setKeywordOnly(keywordOnlyMode);
+        builder.addParameter(parameter);
+
+        LOGGER.info("Added typed parameter: {} with type: {} {}",
+                paramName, paramType.getTypeName(),
+                keywordOnlyMode ? "(keyword-only)" : "");
+    }
+
+    /**
+     * Processes a parameter with default value only
+     * Example: def func(param="default")
+     */
+    private void processDefaultParameter(ASTUtil.ASTNode param, UMLOperation.Builder builder, boolean keywordOnlyMode) {
+        ASTUtil.ASTNode nameNode = findChildByFieldName(param, "name");
+        if (nameNode == null) return;
+
+        String paramName = nameNode.getText(sourceCode);
+        UMLParameter parameter = createParameter(param, paramName, new UMLType("object"));
+
+        setParameterProperties(parameter, param, keywordOnlyMode);
+        builder.addParameter(parameter);
+
+        LOGGER.info("Added parameter with default: {}", paramName);
+    }
+
+    /**
+     * Processes a simple parameter without type or default value
+     * Example: def func(param)
+     */
+    private void processSimpleParameter(ASTUtil.ASTNode param, UMLOperation.Builder builder, boolean keywordOnlyMode) {
+        String paramName = param.getText(sourceCode);
+        UMLParameter parameter = createParameter(param, paramName, new UMLType("object"));
+
+        parameter.setKeywordOnly(keywordOnlyMode);
+        builder.addParameter(parameter);
+
+        LOGGER.info("Added simple parameter: {} {}",
+                paramName, keywordOnlyMode ? "(keyword-only)" : "");
+    }
+
+    /**
+     * Creates a base UMLParameter with location information
+     */
+    private UMLParameter createParameter(ASTUtil.ASTNode param, String name, UMLType type) {
+        LocationInfo paramLocation = new LocationInfo(
+                filePath,
+                param.startPoint,
+                param.endPoint,
+                CodeElementType.PARAMETER_DECLARATION
+        );
+        return new UMLParameter(name, type, paramLocation);
+    }
+
+    /**
+     * Gets the parameter type from type annotation, defaulting to "object" if not specified
+     */
+    private UMLType getParameterType(ASTUtil.ASTNode param) {
+        ASTUtil.ASTNode typeNode = findChildByFieldName(param, "type");
+        if (typeNode == null) {
+            return new UMLType("object");
+        }
+        String typeName = processGenericType(typeNode);
+        return new UMLType(typeName);
+    }
+
+    /**
+     * Sets common parameter properties like default value and keyword-only flag
+     */
+    private void setParameterProperties(UMLParameter parameter, ASTUtil.ASTNode param, boolean keywordOnlyMode) {
+        ASTUtil.ASTNode valueNode = findChildByFieldName(param, "value");
+        if (valueNode != null) {
+            parameter.setDefaultValue(valueNode.getText(sourceCode));
+            LOGGER.info("Set default value: {}", valueNode.getText(sourceCode));
+        }
+        parameter.setKeywordOnly(keywordOnlyMode);
+    }
+
+
     private void processReturnType(ASTUtil.ASTNode node, UMLOperation.Builder builder) {
         LOGGER.info("in processReturnType()");
 
