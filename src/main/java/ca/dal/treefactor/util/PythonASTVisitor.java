@@ -233,102 +233,76 @@ public class PythonASTVisitor extends ASTVisitor {
         currentScope.remove(currentScope.size() - 1);
     }
 
-    @Override
     protected void processField(ASTUtil.ASTNode node) {
-        LOGGER.info("Processing potential field node: {}", node.type);
+        if (!shouldProcessField(node)) return;
 
-        // Skip if not in a class context
+        ASTUtil.ASTNode leftNode = findChildByFieldName(node, "left");
+        if (leftNode == null) return;
+
+        if (leftNode.type.equals("attribute")) {
+            processInstanceAttribute(node, leftNode);
+        } else if (leftNode.type.equals("identifier") && !isInMethod()) {
+            processClassAttribute(node, leftNode);
+        }
+    }
+
+    private boolean shouldProcessField(ASTUtil.ASTNode node) {
         if (currentClass == null) {
             LOGGER.info("No current class context");
-            return;
+            return false;
         }
+        return node.type.equals("assignment");
+    }
 
-        if (node.type.equals("assignment")) {
-            ASTUtil.ASTNode leftNode = findChildByFieldName(node, "left");
-            LOGGER.info("Left node type: {}", (leftNode != null ? leftNode.type : "null"));
+    private void processInstanceAttribute(ASTUtil.ASTNode node, ASTUtil.ASTNode leftNode) {
+        ASTUtil.ASTNode objectNode = findChildByFieldName(leftNode, "object");
+        ASTUtil.ASTNode attributeNode = findChildByFieldName(leftNode, "attribute");
 
-            if (leftNode != null) {
-                if (leftNode.type.equals("attribute")) {
-                    // Handle instance attributes (self.attribute assignments in methods)
-                    ASTUtil.ASTNode objectNode = findChildByFieldName(leftNode, "object");
-                    ASTUtil.ASTNode attributeNode = findChildByFieldName(leftNode, "attribute");
+        if (!isValidSelfAttribute(objectNode, attributeNode)) return;
 
-                    if (objectNode != null &&
-                            attributeNode != null &&
-                            objectNode.getText(sourceCode).equals("self")) {
+        String fieldName = attributeNode.getText(sourceCode);
+        UMLAttribute attribute = createAttribute(node, fieldName, false);
+        currentClass.addAttribute(attribute);
+    }
 
-                        String fieldName = attributeNode.getText(sourceCode);
-                        LOGGER.info("Found instance attribute: {}", fieldName);
+    private boolean isValidSelfAttribute(ASTUtil.ASTNode objectNode, ASTUtil.ASTNode attributeNode) {
+        return objectNode != null &&
+                attributeNode != null &&
+                objectNode.getText(sourceCode).equals("self");
+    }
 
-                        LocationInfo locationInfo = new LocationInfo(
-                                filePath,
-                                node.startPoint,
-                                node.endPoint,
-                                CodeElementType.FIELD_DECLARATION
-                        );
+    private void processClassAttribute(ASTUtil.ASTNode node, ASTUtil.ASTNode leftNode) {
+        String fieldName = leftNode.getText(sourceCode);
+        UMLAttribute attribute = createAttribute(node, fieldName, true);
+        currentClass.addAttribute(attribute);
+    }
 
-                        UMLAttribute attribute = new UMLAttribute(
-                                fieldName,
-                                new UMLType("object"),
-                                locationInfo
-                        );
+    private UMLAttribute createAttribute(ASTUtil.ASTNode node, String fieldName, boolean isStatic) {
+        LocationInfo locationInfo = new LocationInfo(
+                filePath,
+                node.startPoint,
+                node.endPoint,
+                CodeElementType.FIELD_DECLARATION
+        );
 
-                        // Instance attributes are not static
-                        attribute.setStatic(false);
+        UMLAttribute attribute = new UMLAttribute(
+                fieldName,
+                new UMLType("object"),
+                locationInfo
+        );
 
-                        // Set visibility based on name convention
-                        attribute.setVisibility(determineVisibility(fieldName));
+        attribute.setStatic(isStatic);
+        attribute.setVisibility(determineVisibility(fieldName));
+        setInitialValue(node, attribute);
 
-                        // Get initial value if present
-                        ASTUtil.ASTNode rightNode = findChildByFieldName(node, "right");
-                        if (rightNode != null) {
-                            attribute.setInitialValue(rightNode.getText(sourceCode));
-                            LOGGER.info("Set initial value: {}", rightNode.getText(sourceCode));
-                        }
+        return attribute;
+    }
 
-                        currentClass.addAttribute(attribute);
-                        LOGGER.info("Added instance attribute: {}", fieldName);
-                    }
-                } else if (leftNode.type.equals("identifier") && !isInMethod()) {
-                    // Handle class attributes (direct assignments in class body)
-                    String fieldName = leftNode.getText(sourceCode);
-                    LOGGER.info("Found class attribute: {}", fieldName);
-
-                    LocationInfo locationInfo = new LocationInfo(
-                            filePath,
-                            node.startPoint,
-                            node.endPoint,
-                            CodeElementType.FIELD_DECLARATION
-                    );
-
-                    UMLAttribute attribute = new UMLAttribute(
-                            fieldName,
-                            new UMLType("object"),
-                            locationInfo
-                    );
-
-                    // Class attributes are static
-                    attribute.setStatic(true);
-
-                    // Set visibility based on name convention
-                    attribute.setVisibility(determineVisibility(fieldName));
-
-                    // Get initial value if present
-                    ASTUtil.ASTNode rightNode = findChildByFieldName(node, "right");
-                    if (rightNode != null) {
-                        attribute.setInitialValue(rightNode.getText(sourceCode));
-                        LOGGER.info("Set initial value: {}", rightNode.getText(sourceCode));
-                    }
-
-                    currentClass.addAttribute(attribute);
-                    LOGGER.info("Added class attribute: {}", fieldName);
-                }
-            }
+    private void setInitialValue(ASTUtil.ASTNode node, UMLAttribute attribute) {
+        ASTUtil.ASTNode rightNode = findChildByFieldName(node, "right");
+        if (rightNode != null) {
+            attribute.setInitialValue(rightNode.getText(sourceCode));
         }
-
-        // Print current attributes for debugging
-        LOGGER.info("Current class attributes: {}",
-                (currentClass != null ? currentClass.getAttributes().size() : "no class"));
     }
 
     @Override
