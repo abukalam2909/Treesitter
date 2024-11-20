@@ -67,17 +67,67 @@ public class PythonASTVisitor extends ASTVisitor {
         }
     }
 
+
+    /**
+     * Process a class node to create a UML class representation.
+     * Handles both direct class definitions and decorated classes.
+     */
     @Override
     protected void processClass(ASTUtil.ASTNode node) {
         LOGGER.info("Processing class node: {}", node.type);
 
-        // Find the actual class definition node
-        ASTUtil.ASTNode classNode;
+        // Extract class definition and any decorators
+        ClassDefinitionInfo classInfo = getClassDefinitionInfo(node);
+        if (classInfo.classNode == null) return;
+
+        // Get class name
+        String className = extractClassName(classInfo.classNode);
+        if (className == null) return;
+
+        LOGGER.info("Found class: {}", className);
+
+        // Store current class and create new one
+        UMLClass previousClass = currentClass;
+        currentClass = createUMLClass(node, className);
+
+        // Process all class elements (decorators, inheritance, body, etc)
+        processClassElements(classInfo);
+
+        // Add class to model and restore previous class context
+        model.addClass(currentClass);
+        currentClass = previousClass;
+
+        LOGGER.info("Finished processing class: {}", className);
+    }
+
+    /**
+     * Helper class to hold class definition node and its decorators.
+     * Used to pass around related class information together.
+     */
+    private static class ClassDefinitionInfo {
+        final ASTUtil.ASTNode classNode;
+        final List<ASTUtil.ASTNode> decorators;
+
+        ClassDefinitionInfo(ASTUtil.ASTNode classNode, List<ASTUtil.ASTNode> decorators) {
+            this.classNode = classNode;
+            this.decorators = decorators;
+        }
+    }
+
+    /**
+     * Extracts the class definition node and any decorators from the input node.
+     * Handles both decorated and non-decorated class definitions.
+     *
+     * @param node The input node that could be either a class_definition or decorated_definition
+     * @return ClassDefinitionInfo containing the class node and any decorators found
+     */
+    private ClassDefinitionInfo getClassDefinitionInfo(ASTUtil.ASTNode node) {
         List<ASTUtil.ASTNode> decorators = new ArrayList<>();
+        ASTUtil.ASTNode classNode;
 
         if (node.type.equals("decorated_definition")) {
             LOGGER.info("Found decorated definition");
-            // Get decorators directly from decorated_definition
+            // Extract decorators from decorated definition
             for (ASTUtil.ASTNode child : node.children) {
                 if (child.type.equals("decorator")) {
                     decorators.add(child);
@@ -85,84 +135,115 @@ public class PythonASTVisitor extends ASTVisitor {
             }
             classNode = findChildByType(node, "class_definition");
         } else {
+            // Direct class definition without decorators
             classNode = node;
         }
 
-        if (classNode == null) return;
+        return new ClassDefinitionInfo(classNode, decorators);
+    }
 
-        String className = extractClassName(classNode);
-        if (className == null) return;
-
-        LOGGER.info("Found class: {}", className);
-
+    /**
+     * Creates a new UMLClass instance with the given name and location information.
+     */
+    private UMLClass createUMLClass(ASTUtil.ASTNode node, String className) {
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
                 node.startPoint,
                 node.endPoint,
                 CodeElementType.CLASS_DECLARATION
         );
+        return new UMLClass(extractModuleName(filePath), className, locationInfo);
+    }
 
-        UMLClass previousClass = currentClass;
-        currentClass = new UMLClass(extractModuleName(filePath), className, locationInfo);
-
-        // Process decorators if any were found
-        if (!decorators.isEmpty()) {
-            LOGGER.info("Processing {} decorators", decorators.size());
-            processDecorators(decorators, currentClass);
+    /**
+     * Processes all elements of a class including decorators, inheritance,
+     * docstrings, and class body.
+     */
+    private void processClassElements(ClassDefinitionInfo classInfo) {
+        // Process class features
+        if (!classInfo.decorators.isEmpty()) {
+            LOGGER.info("Processing {} decorators", classInfo.decorators.size());
+            processDecorators(classInfo.decorators, currentClass);
         }
 
-        // Process inheritance
-        processInheritance(classNode, currentClass);
+        // Process inheritance and documentation
+        processInheritance(classInfo.classNode, currentClass);
+        processDocstring(classInfo.classNode, currentClass);
 
-        // Process docstring
-        processDocstring(classNode, currentClass);
-
-// Add to scope and process body
-        currentScope.add(className);
-        ASTUtil.ASTNode body = findChildByType(classNode, "block");
-        if (body != null) {
-            // Print AST for debugging
-            LOGGER.info("Class body AST:");
-            LOGGER.info(ASTUtil.printAST(body, 0));
-
-            // Process body contents directly
-            for (ASTUtil.ASTNode child : body.children) {
-                LOGGER.info("Processing class body node: {}", child.type);
-                if (child.type.equals("function_definition")) {
-                    processMethod(child);
-                } else if (child.type.equals("decorated_definition")) {
-                    ASTUtil.ASTNode methodNode = findChildByType(child, "function_definition");
-                    if (methodNode != null) {
-                        processMethod(child);
-                    }
-                } else if (child.type.equals("expression_statement")) {
-                    // Check if it's an assignment
-                    ASTUtil.ASTNode assignmentNode = findChildByType(child, "assignment");
-                    if (assignmentNode != null) {
-                        LOGGER.info("Found assignment in class body: {}", assignmentNode.getText(sourceCode));
-                        processField(assignmentNode);
-                    }
-                    // Handle docstrings
-                    else if (child.children.size() == 1 &&
-                            child.children.get(0).type.equals("string")) {
-                        processDocstring(child, currentClass);
-                    }
-                } else if (child.type.equals("assignment")) {  // Direct assignment case
-                    LOGGER.info("Found direct assignment in class body: {}", child.getText(sourceCode));
-                    processField(child);
-                } else if (child.type.equals("class_definition")) {
-                    processClass(child);
-                }
-            }
-        }
-
+        // Add to scope and process body
+        currentScope.add(currentClass.getName());
+        processClassBody(classInfo.classNode);
         currentScope.remove(currentScope.size() - 1);
+    }
 
-        // Finalize class processing
-        model.addClass(currentClass);
-        currentClass = previousClass;
+    /**
+     * Processes the class body, including methods, fields, and nested classes.
+     * @param classNode The class definition node containing the body
+     */
+    private void processClassBody(ASTUtil.ASTNode classNode) {
+        ASTUtil.ASTNode body = findChildByType(classNode, "block");
+        if (body == null) return;
 
-        LOGGER.info("Finished processing class: {}", className);
+        LOGGER.info("Class body AST:");
+        LOGGER.info(ASTUtil.printAST(body, 0));
+
+        for (ASTUtil.ASTNode child : body.children) {
+            processClassBodyNode(child);
+        }
+    }
+
+    /**
+     * Processes a single node in the class body.
+     * Routes each node to its appropriate processor based on its type.
+     */
+    private void processClassBodyNode(ASTUtil.ASTNode child) {
+        LOGGER.info("Processing class body node: {}", child.type);
+
+        switch(child.type) {
+            case "function_definition":
+                processMethod(child);
+                break;
+            case "decorated_definition":
+                processDecoratedMethod(child);
+                break;
+            case "expression_statement":
+                processClassExpression(child);
+                break;
+            case "assignment":
+                processField(child);
+                break;
+            case "class_definition":
+                processClass(child);  // Handle nested classes
+                break;
+        }
+    }
+
+    /**
+     * Processes a decorated method definition.
+     * Extracts the method node from the decorator and processes it.
+     */
+    private void processDecoratedMethod(ASTUtil.ASTNode node) {
+        ASTUtil.ASTNode methodNode = findChildByType(node, "function_definition");
+        if (methodNode != null) {
+            processMethod(node);
+        }
+    }
+
+    /**
+     * Processes a class expression statement.
+     * Handles both assignments and docstrings.
+     */
+    private void processClassExpression(ASTUtil.ASTNode child) {
+        // Handle assignments
+        ASTUtil.ASTNode assignmentNode = findChildByType(child, "assignment");
+        if (assignmentNode != null) {
+            LOGGER.info("Found assignment in class body: {}", assignmentNode.getText(sourceCode));
+            processField(assignmentNode);
+        }
+        // Handle docstrings
+        else if (child.children.size() == 1 && child.children.get(0).type.equals("string")) {
+            processDocstring(child, currentClass);
+        }
     }
 
     // Add this as a separate helper method in the class
