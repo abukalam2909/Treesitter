@@ -71,43 +71,64 @@ public class UMLImport {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
+
         switch (type) {
-            case SINGLE:
-                sb.append("import ").append(importedName);
-                if (hasAlias()) {
-                    sb.append(" as ").append(alias);
-                }
-                break;
-            case WILDCARD:
-                sb.append("import * from ").append(importedName);
-                break;
-            case DESTRUCTURING:
-                sb.append("import { ").append(importedName).append(" }");
-                if (hasAlias()) {
-                    sb.append(" as ").append(alias);
-                }
-                break;
-            case NAMESPACE:
-                sb.append("import * as ").append(alias).append(" from ").append(importedName);
-                break;
-            case DEFAULT:
-                sb.append("import ").append(hasAlias() ? alias : "default")
-                        .append(" from ").append(importedName);
-                break;
-            case RELATIVE:
-                sb.append("from ").append(importedName).append(" import ");
-                if (hasAlias()) {
-                    sb.append(getSimpleName()).append(" as ").append(alias);
-                } else {
-                    sb.append(getSimpleName());
-                }
-                break;
-            case DIRECT:
-                sb.append("require('").append(importedName).append("')");
-                break;
+            case SINGLE -> buildSingleImport(sb);
+            case WILDCARD -> buildWildcardImport(sb);
+            case DESTRUCTURING -> buildDestructuringImport(sb);
+            case NAMESPACE -> buildNamespaceImport(sb);
+            case DEFAULT -> buildDefaultImport(sb);
+            case RELATIVE -> buildRelativeImport(sb);
+            case DIRECT -> buildDirectImport(sb);
         }
+
         return sb.toString();
     }
+
+    private void buildSingleImport(StringBuilder sb) {
+        sb.append("import ").append(importedName);
+        appendAliasIfPresent(sb);
+    }
+
+    private void buildWildcardImport(StringBuilder sb) {
+        sb.append("import * from ").append(importedName);
+    }
+
+    private void buildDestructuringImport(StringBuilder sb) {
+        sb.append("import { ").append(importedName).append(" }");
+        appendAliasIfPresent(sb);
+    }
+
+    private void buildNamespaceImport(StringBuilder sb) {
+        sb.append("import * as ").append(alias)
+                .append(" from ").append(importedName);
+    }
+
+    private void buildDefaultImport(StringBuilder sb) {
+        sb.append("import ")
+                .append(hasAlias() ? alias : "default")
+                .append(" from ").append(importedName);
+    }
+
+    private void buildRelativeImport(StringBuilder sb) {
+        sb.append("from ").append(importedName).append(" import ");
+        if (hasAlias()) {
+            sb.append(getSimpleName()).append(" as ").append(alias);
+        } else {
+            sb.append(getSimpleName());
+        }
+    }
+
+    private void buildDirectImport(StringBuilder sb) {
+        sb.append("require('").append(importedName).append("')");
+    }
+
+    private void appendAliasIfPresent(StringBuilder sb) {
+        if (hasAlias()) {
+            sb.append(" as ").append(alias);
+        }
+    }
+
 
     @Override
     public boolean equals(Object o) {
