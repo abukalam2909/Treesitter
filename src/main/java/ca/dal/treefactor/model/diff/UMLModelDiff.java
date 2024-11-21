@@ -211,28 +211,112 @@ public class UMLModelDiff {
                 closeEditDistance;
     }
 
+    /**
+     * Constants for method name normalization patterns.
+     * These patterns are used to standardize method names by removing common prefixes and suffixes.
+     */
+    public class MethodNamePatterns {
+        // Common method name prefixes that can be removed during normalization
+        private static final String[] PREFIX_PATTERNS = {
+                "get",
+                "set",
+                "is",
+                "has",
+                "do",
+                "make",
+                "create",
+                "build",
+                "compute",
+                "calculate",
+                "find",
+                "search",
+                "fetch"
+        };
+
+        // Common method name suffixes that can be removed during normalization
+        private static final String[] SUFFIX_PATTERNS = {
+                "Async",
+                "Impl",
+                "Internal",
+                "Helper"
+        };
+
+        // Compiled patterns for better performance
+        public static final String PREFIX_REGEX = "^(" + String.join("|", PREFIX_PATTERNS) + ")";
+        public static final String SUFFIX_REGEX = "(" + String.join("|", SUFFIX_PATTERNS) + ")$";
+
+        private MethodNamePatterns() {
+            // Prevent instantiation
+        }
+    }
+
+    /**
+     * Normalizes a method name by removing common prefixes and suffixes
+     * and converting to lowercase for case-insensitive comparison.
+     *
+     * @param name The original method name
+     * @return The normalized method name
+     */
     private String normalizeMethodName(String name) {
-        return name.replaceAll("^(get|set|is|has|do|make|create|build|compute|calculate|find|search|fetch)", "")
-                .replaceAll("(Async|Impl|Internal|Helper)$", "")
+        return name
+                .replaceAll(MethodNamePatterns.PREFIX_REGEX, "")
+                .replaceAll(MethodNamePatterns.SUFFIX_REGEX, "")
                 .toLowerCase();
     }
 
+
+    /**
+     * Calculates the Levenshtein distance between two strings.
+     * The Levenshtein distance is the minimum number of single-character edits
+     * required to change one string into another.
+     */
     private int getLevenshteinDistance(String s1, String s2) {
         int[][] dp = new int[s1.length() + 1][s2.length() + 1];
-
-        for (int i = 0; i <= s1.length(); i++) {
-            for (int j = 0; j <= s2.length(); j++) {
-                if (i == 0) {
-                    dp[i][j] = j;
-                } else if (j == 0) {
-                    dp[i][j] = i;
-                } else {
-                    dp[i][j] = Math.min(dp[i - 1][j - 1] +
-                                    (s1.charAt(i - 1) == s2.charAt(j - 1) ? 0 : 1),
-                            Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1));
-                }
-            }
-        }
+        initializeFirstRow(dp, s2.length());
+        computeLevenshteinMatrix(dp, s1, s2);
         return dp[s1.length()][s2.length()];
     }
+
+    /**
+     * Initializes the first row and column of the distance matrix.
+     */
+    private void initializeFirstRow(int[][] dp, int length) {
+        // Initialize first row
+        for (int j = 0; j <= length; j++) {
+            dp[0][j] = j;
+        }
+    }
+
+    /**
+     * Computes the Levenshtein distance matrix.
+     */
+    private void computeLevenshteinMatrix(int[][] dp, String s1, String s2) {
+        for (int i = 1; i <= s1.length(); i++) {
+            // Initialize first column
+            dp[i][0] = i;
+
+            for (int j = 1; j <= s2.length(); j++) {
+                dp[i][j] = getMinimumEditDistance(
+                        dp, i, j,
+                        s1.charAt(i - 1) == s2.charAt(j - 1)
+                );
+            }
+        }
+    }
+
+    /**
+     * Calculates the minimum edit distance for a position in the matrix.
+     */
+    private int getMinimumEditDistance(int[][] dp, int i, int j, boolean charsMatch) {
+        // Cost of substitution
+        int substitutionCost = dp[i - 1][j - 1] + (charsMatch ? 0 : 1);
+
+        // Cost of insertion and deletion
+        int insertionCost = dp[i][j - 1] + 1;
+        int deletionCost = dp[i - 1][j] + 1;
+
+        // Return minimum of all operations
+        return Math.min(substitutionCost, Math.min(insertionCost, deletionCost));
+    }
+
 }
