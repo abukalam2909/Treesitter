@@ -646,71 +646,163 @@ public class PythonASTVisitor extends ASTVisitor {
             builder.returnType(new UMLType("None")); // Default Python return type
         }
     }
-
+    /**
+     * Process a type node and extract its type information.
+     * Handles both simple types (e.g., "str", "int") and generic types (e.g., "List[str]", "Dict[str, Any]").
+     *
+     * @param typeNode The AST node representing the type
+     * @return String representation of the type
+     */
     private String processGenericType(ASTUtil.ASTNode typeNode) {
         if (typeNode == null) return "object";
 
         LOGGER.info("Processing type node: {}", typeNode.type);
 
-        // Get the generic_type node
+        // Check if this is a generic type (e.g., List[str]) or a simple type (e.g., int)
         ASTUtil.ASTNode genericNode = findChildByType(typeNode, "generic_type");
         if (genericNode != null) {
-            StringBuilder sb = new StringBuilder();
+            return processGenericTypeNode(genericNode);
+        } else {
+            return processSimpleType(typeNode);
+        }
+    }
 
-            // Get base type name (List, Dict, etc)
-            ASTUtil.ASTNode baseType = findChildByType(genericNode, "identifier");
-            if (baseType != null) {
-                sb.append(baseType.getText(sourceCode));
+    /**
+     * Process a generic type node and build its complete type representation.
+     * Example: For List[str], processes both the 'List' part and the '[str]' part.
+     *
+     * @param genericNode The AST node representing the generic type
+     * @return Complete string representation of the generic type
+     */
+    private String processGenericTypeNode(ASTUtil.ASTNode genericNode) {
+        StringBuilder sb = new StringBuilder();
+
+        // Process the base type (e.g., the 'List' in 'List[str]')
+        processBaseType(genericNode, sb);
+
+        // Process any type parameters (e.g., the 'str' in 'List[str]')
+        List<String> typeParams = collectTypeParameters(genericNode);
+        appendTypeParameters(sb, typeParams);
+
+        // Log debug information about the processed type
+        logGenericTypeInfo(genericNode, typeParams);
+
+        return sb.toString();
+    }
+
+    /**
+     * Process the base type of a generic type (e.g., the 'List' in 'List[str]').
+     * Appends the base type name to the provided StringBuilder.
+     *
+     * @param genericNode The generic type AST node
+     * @param sb StringBuilder to append the base type to
+     */
+    private void processBaseType(ASTUtil.ASTNode genericNode, StringBuilder sb) {
+        ASTUtil.ASTNode baseType = findChildByType(genericNode, "identifier");
+        if (baseType != null) {
+            sb.append(baseType.getText(sourceCode));
+        }
+    }
+
+    /**
+     * Collect and process all type parameters from a generic type.
+     * For example, in Dict[str, Any], collects both 'str' and 'Any'.
+     *
+     * @param genericNode The generic type AST node
+     * @return List of processed type parameter strings
+     */
+    private List<String> collectTypeParameters(ASTUtil.ASTNode genericNode) {
+        List<String> typeParams = new ArrayList<>();
+
+        for (ASTUtil.ASTNode child : genericNode.children) {
+            if (child.type.equals("type_parameter")) {
+                processTypeParameter(child, typeParams);
             }
+        }
 
-            // Find all type parameters
-            List<String> typeParams = new ArrayList<>();
-            for (ASTUtil.ASTNode child : genericNode.children) {
-                if (child.type.equals("type_parameter")) {
-                    LOGGER.info("Processing type parameter node, child count: {}", child.children.size());
+        return typeParams;
+    }
 
-                    // Collect all type nodes within this type_parameter
-                    for (ASTUtil.ASTNode paramChild : child.children) {
-                        if (paramChild.type.equals("type")) {
-                            // Check if inner type is another generic type
-                            ASTUtil.ASTNode innerGeneric = findChildByType(paramChild, "generic_type");
-                            if (innerGeneric != null) {
-                                // Recursively process nested generic type
-                                typeParams.add(processGenericType(paramChild));
-                            } else {
-                                // Simple type
-                                ASTUtil.ASTNode innerIdentifier = findChildByType(paramChild, "identifier");
-                                if (innerIdentifier != null) {
-                                    typeParams.add(innerIdentifier.getText(sourceCode));
-                                }
-                            }
-                        }
-                    }
+    /**
+     * Process a single type parameter node and add its type to the typeParams list.
+     * Handles both simple type parameters and nested generic types.
+     *
+     * @param paramNode The type parameter AST node
+     * @param typeParams List to add the processed type parameter to
+     */
+    private void processTypeParameter(ASTUtil.ASTNode paramNode, List<String> typeParams) {
+        LOGGER.info("Processing type parameter node, child count: {}", paramNode.children.size());
+
+        for (ASTUtil.ASTNode paramChild : paramNode.children) {
+            if (paramChild.type.equals("type")) {
+                String paramType = extractParameterType(paramChild);
+                if (paramType != null) {
+                    typeParams.add(paramType);
                 }
             }
-
-            // Add all type parameters in brackets
-            if (!typeParams.isEmpty()) {
-                sb.append("[");
-                sb.append(String.join(", ", typeParams));
-                sb.append("]");
-            }
-
-            // Debug output
-            LOGGER.info("Found generic type with base: " +
-                    (baseType != null ? baseType.getText(sourceCode) : "null"));
-            LOGGER.info("Type parameters found: {}", typeParams);
-
-            String result = sb.toString();
-            LOGGER.info("Generated type: {}", result);
-            return result;
-        } else {
-            // For simple types
-            ASTUtil.ASTNode identifier = findChildByType(typeNode, "identifier");
-            String result = identifier != null ? identifier.getText(sourceCode) : "object";
-            LOGGER.info("Simple type: {}", result);
-            return result;
         }
+    }
+
+    /**
+     * Extract the type from a parameter type node.
+     * Handles both simple types and nested generic types recursively.
+     *
+     * @param typeNode The type AST node
+     * @return String representation of the parameter type
+     */
+    private String extractParameterType(ASTUtil.ASTNode typeNode) {
+        // Handle nested generic types (e.g., List[List[str]])
+        ASTUtil.ASTNode innerGeneric = findChildByType(typeNode, "generic_type");
+        if (innerGeneric != null) {
+            return processGenericType(typeNode);  // Recursive call for nested generic types
+        }
+
+        // Handle simple types
+        ASTUtil.ASTNode innerIdentifier = findChildByType(typeNode, "identifier");
+        return innerIdentifier != null ? innerIdentifier.getText(sourceCode) : null;
+    }
+
+    /**
+     * Append type parameters to the generic type representation.
+     * Adds the square brackets and joins multiple type parameters with commas.
+     *
+     * @param sb StringBuilder to append to
+     * @param typeParams List of type parameter strings to append
+     */
+    private void appendTypeParameters(StringBuilder sb, List<String> typeParams) {
+        if (!typeParams.isEmpty()) {
+            sb.append("[");
+            sb.append(String.join(", ", typeParams));
+            sb.append("]");
+        }
+    }
+
+    /**
+     * Log debug information about the processed generic type.
+     * Includes the base type and all found type parameters.
+     *
+     * @param genericNode The generic type AST node
+     * @param typeParams List of processed type parameters
+     */
+    private void logGenericTypeInfo(ASTUtil.ASTNode genericNode, List<String> typeParams) {
+        ASTUtil.ASTNode baseType = findChildByType(genericNode, "identifier");
+        LOGGER.info("Found generic type with base: {}",
+                baseType != null ? baseType.getText(sourceCode) : "null");
+        LOGGER.info("Type parameters found: {}", typeParams);
+    }
+
+    /**
+     * Process a simple (non-generic) type node.
+     * Handles basic types like 'str', 'int', etc.
+     *
+     * @param typeNode The type AST node
+     * @return String representation of the simple type
+     */
+    private String processSimpleType(ASTUtil.ASTNode typeNode) {
+        ASTUtil.ASTNode identifier = findChildByType(typeNode, "identifier");
+        String result = identifier != null ? identifier.getText(sourceCode) : "object";
+        LOGGER.info("Simple type: {}", result);
+        return result;
     }
 
     private void processDecorators(List<ASTUtil.ASTNode> decorators, Object target) {
