@@ -3,6 +3,7 @@ package ca.dal.treefactor.util;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,14 +44,15 @@ public class UMLModelReader {
                 .orElse("unknown");
     }
 
+    private static final Set<String> SUPPORTED_EXTENSIONS = Set.of("py", "cpp", "js");
+
     private void processFileContents(Map<String, String> fileContents) {
         for (Map.Entry<String, String> entry : fileContents.entrySet()) {
             String filePath = entry.getKey();
             String content = entry.getValue();
             String extension = getFileExtension(filePath);
 
-            // Check if the file extension is one of the desired types
-            if (extension.equals("py") || extension.equals("cpp") || extension.equals("js")) {
+            if (SUPPORTED_EXTENSIONS.contains(extension)) {
                 try {
                     Language language = TreeSitterUtil.loadLanguageForFileExtension(filePath);
                     processAST(filePath, content, language);
@@ -64,7 +66,6 @@ public class UMLModelReader {
             }
         }
     }
-
 
     private void processAST(String filePath, String content, Language language) throws Exception {
         try (Parser parser = new Parser()) {
