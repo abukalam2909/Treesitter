@@ -110,6 +110,39 @@ public class UMLModelDiff {
         }
     }
 
+    /**
+     * Constants used for determining operation similarity and matching thresholds.
+     * These thresholds are used to determine when operations should be considered related
+     * or matching based on various criteria.
+     */
+    public class OperationThresholds {
+        /**
+         * Minimum similarity score required to consider two operation bodies as matching.
+         * Operations with body similarity below this threshold will not be considered matches.
+         * The value of 0.7 (70%) was chosen based on empirical testing to balance between:
+         * - Being high enough to avoid false positives
+         * - Being low enough to catch operations that have been significantly modified
+         * - Accommodating common refactoring patterns that modify method bodies
+         */
+        public static final double BODY_SIMILARITY_THRESHOLD = 0.7;
+
+        /**
+         * Minimum ratio of matched statements required to consider operations as related.
+         * This is used when comparing operation bodies statement by statement.
+         */
+        public static final double STATEMENT_MATCH_THRESHOLD = 0.5;
+
+        /**
+         * Maximum Levenshtein distance allowed between method names to consider them related.
+         * This helps identify renamed methods that maintain similar functionality.
+         */
+        public static final int MAX_NAME_EDIT_DISTANCE = 2;
+
+        private OperationThresholds() {
+            // Prevent instantiation of this constants class
+        }
+    }
+
     private void matchOperationsBasedOnBodySimilarity() {
         Set<String> unmatchedOldKeys = new HashSet<>(oldOperations.keySet());
         unmatchedOldKeys.removeAll(newOperations.keySet());
@@ -134,7 +167,7 @@ public class UMLModelDiff {
                 UMLOperationBodyMapper mapper = new UMLOperationBodyMapper(oldOp, newOp);
                 double similarity = mapper.bodyComparatorScore();
 
-                if (similarity > maxSimilarity && similarity >= 0.7) {
+                if (similarity > maxSimilarity && similarity >= OperationThresholds.BODY_SIMILARITY_THRESHOLD) {
                     maxSimilarity = similarity;
                     bestMatch = newOp;
                     bestMapper = mapper;
@@ -156,16 +189,26 @@ public class UMLModelDiff {
     }
 
     private boolean areMethodNamesRelated(String oldName, String newName) {
-        if (oldName.equals(newName)) return true;
+        // Quick exact match check
+        if (oldName.equals(newName)) {
+            return true;
+        }
 
-        // Handle common rename patterns
+        // Normalize names
         String normalizedOld = normalizeMethodName(oldName);
         String normalizedNew = normalizeMethodName(newName);
 
-        return normalizedOld.equals(normalizedNew) ||
-                normalizedOld.contains(normalizedNew) ||
-                normalizedNew.contains(normalizedOld) ||
-                getLevenshteinDistance(normalizedOld, normalizedNew) <= 2;
+        // Check various similarity conditions
+        boolean exactNormalizedMatch = normalizedOld.equals(normalizedNew);
+        boolean oldContainsNew = normalizedOld.contains(normalizedNew);
+        boolean newContainsOld = normalizedNew.contains(normalizedOld);
+        boolean closeEditDistance = getLevenshteinDistance(normalizedOld, normalizedNew)
+                <= OperationThresholds.MAX_NAME_EDIT_DISTANCE;
+
+        return exactNormalizedMatch ||
+                oldContainsNew ||
+                newContainsOld ||
+                closeEditDistance;
     }
 
     private String normalizeMethodName(String name) {
