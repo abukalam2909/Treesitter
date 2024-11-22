@@ -142,18 +142,24 @@ public class UMLOperationBodyMapper {
         return indices;
     }
 
+    /**
+     * Threshold for determining if two methods with different names are a rename refactoring.
+     * Value represents minimum ratio of mapped statements between methods.
+     * Range is 0.0 to 1.0, where:
+     * - 1.0 means perfect body similarity (all statements match)
+     * - 0.0 means completely different bodies
+     * Default 0.7 requires 70% of statements to match.
+     */
+    private static final double RENAME_METHOD_SIMILARITY_THRESHOLD = 0.7;
 
     private void detectMethodLevelRefactorings() {
         // Compare method signatures for potential rename
         if (!operation1.getName().equals(operation2.getName())) {
             double bodySimilarity = bodyComparatorScore();
-            if (bodySimilarity >= 0.7) { // Configurable threshold
+            if (bodySimilarity >= RENAME_METHOD_SIMILARITY_THRESHOLD) {
                 refactorings.add(new RenameMethodRefactoring(operation1, operation2));
             }
         }
-
-        // Other method-level refactoring detection can be added here
-        // For example: Extract Method, Move Method, etc.
     }
 
     public double bodyComparatorScore() {
