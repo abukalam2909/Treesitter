@@ -2,6 +2,7 @@ package ca.dal.treefactor.util;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,9 +34,9 @@ public class JSASTVisitor extends ASTVisitor {
 
     @Override
     public void visit(ASTUtil.ASTNode node) {
-        LOGGER.info("Visiting node of type: {}", node.type);
+        LOGGER.info("Visiting node of type: {}", node.getType());
 
-        switch(node.type) {
+        switch(node.getType()) {
             case "program":
                 LOGGER.info("Processing program node");
                 processModule(node);
@@ -77,29 +78,29 @@ public class JSASTVisitor extends ASTVisitor {
             case "variable_declaration":
                 if (currentClass != null) {
                     LOGGER.info("Processing variable declaration in class context");
-                    for (ASTUtil.ASTNode child : node.children) {
-                        if (child.type.equals("variable_declarator")) {
+                    for (ASTUtil.ASTNode child : node.getChildren()) {
+                        if (child.getType().equals("variable_declarator")) {
                             processField(child);
                         }
                     }
                 }
                 break;
             default:
-                LOGGER.info("Unhandled node type: {}", node.type);
+                LOGGER.info("Unhandled node type: {}", node.getType());
         }
 
         // Visit children unless it's a method node
         if (!isMethodNode(node)) {
-            for (ASTUtil.ASTNode child : node.children) {
+            for (ASTUtil.ASTNode child : node.getChildren()) {
                 visit(child);
             }
         }
     }
 
     private boolean isMethodNode(ASTUtil.ASTNode node) {
-        return node.type.equals("method_definition") ||
-                node.type.equals("function_declaration") ||
-                node.type.equals("arrow_function");
+        return node.getType().equals("method_definition") ||
+                node.getType().equals("function_declaration") ||
+                node.getType().equals("arrow_function");
     }
 
     @Override
@@ -111,7 +112,7 @@ public class JSASTVisitor extends ASTVisitor {
 
     @Override
     protected void processClass(ASTUtil.ASTNode node) {
-        LOGGER.info("Processing class node: {}", node.type);
+        LOGGER.info("Processing class node: {}", node.getType());
         printNodeStructure(node, 0);  // Print full node structure
 
         String className = extractClassName(node);
@@ -122,7 +123,7 @@ public class JSASTVisitor extends ASTVisitor {
             return;
         }
 
-        LocationInfo location = new LocationInfo(filePath, node.startPoint, node.endPoint,
+        LocationInfo location = new LocationInfo(filePath, node.getStartPoint(), node.getEndPoint(),
                 CodeElementType.CLASS_DECLARATION);
 
         UMLClass previousClass = currentClass;
@@ -136,7 +137,7 @@ public class JSASTVisitor extends ASTVisitor {
         if (heritage == null) heritage = findChildByType(node, "class_heritage");
 
         if (heritage != null) {
-            LOGGER.info("Found heritage node of type: {}", heritage.type);
+            LOGGER.info("Found heritage node of type: {}", heritage.getType());
             String superclass = getChildText(heritage, "identifier");
             if (superclass == null) {
                 // Try getting the text directly
@@ -155,8 +156,8 @@ public class JSASTVisitor extends ASTVisitor {
         ASTUtil.ASTNode decorator = findChildByType(node, "decorator");
         if (decorator != null) {
             LOGGER.info("Processing decorator");
-            LocationInfo decoratorLocation = new LocationInfo(filePath, decorator.startPoint,
-                    decorator.endPoint, CodeElementType.ANNOTATION_TYPE_DECLARATION);
+            LocationInfo decoratorLocation = new LocationInfo(filePath, decorator.getStartPoint(),
+                    decorator.getEndPoint(), CodeElementType.ANNOTATION_TYPE_DECLARATION);
             String decoratorName = getChildText(decorator, "identifier");
             if (decoratorName != null) {
                 currentClass.addAnnotation(new UMLAnnotation(decoratorName, decoratorLocation));
@@ -167,7 +168,7 @@ public class JSASTVisitor extends ASTVisitor {
         ASTUtil.ASTNode body = findChildByType(node, "class_body");
         if (body != null) {
             LOGGER.info("Processing class body");
-            for (ASTUtil.ASTNode child : body.children) {
+            for (ASTUtil.ASTNode child : body.getChildren()) {
                 visit(child);
             }
         }
@@ -184,7 +185,7 @@ public class JSASTVisitor extends ASTVisitor {
         LOGGER.info("Processing method: {}", methodName);
         if (methodName == null) return;
 
-        LocationInfo location = new LocationInfo(filePath, node.startPoint, node.endPoint,
+        LocationInfo location = new LocationInfo(filePath, node.getStartPoint(), node.getEndPoint(),
                 CodeElementType.METHOD_DECLARATION);
 
         UMLOperation operation = new UMLOperation(methodName, location);
@@ -192,7 +193,7 @@ public class JSASTVisitor extends ASTVisitor {
 
         // Process async decorator if present
         if (findChildByType(node, "async") != null) {
-            LocationInfo asyncLocation = new LocationInfo(filePath, node.startPoint, node.endPoint,
+            LocationInfo asyncLocation = new LocationInfo(filePath, node.getStartPoint(), node.getEndPoint(),
                     CodeElementType.ANNOTATION_TYPE_DECLARATION);
             operation.addAnnotation(new UMLAnnotation("async", asyncLocation));
         }
@@ -200,7 +201,7 @@ public class JSASTVisitor extends ASTVisitor {
         // Process parameters
         ASTUtil.ASTNode params = findChildByType(node, "formal_parameters");
         if (params != null) {
-            for (ASTUtil.ASTNode param : params.children) {
+            for (ASTUtil.ASTNode param : params.getChildren()) {
                 processParameter(param, operation);
             }
         }
@@ -225,7 +226,7 @@ public class JSASTVisitor extends ASTVisitor {
     }
 
     private void processParameter(ASTUtil.ASTNode node, UMLOperation operation) {
-        LOGGER.info("Processing parameter node: {}", node.type);
+        LOGGER.info("Processing parameter node: {}", node.getType());
 
         // Debugging log
         LOGGER.info("Node full text: {}", node.getText(sourceCode));
@@ -243,11 +244,11 @@ public class JSASTVisitor extends ASTVisitor {
             paramName = node.getText(sourceCode);
         }
 
-        if (node.type.equals("rest_parameter")) {
+        if (node.getType().equals("rest_parameter")) {
             paramName = "..." + getChildText(node, "identifier");
-        } else if (node.type.equals("object_pattern")) {
+        } else if (node.getType().equals("object_pattern")) {
             paramName = node.getText(sourceCode);
-        } else if (node.type.equals("assignment_pattern")) {
+        } else if (node.getType().equals("assignment_pattern")) {
             ASTUtil.ASTNode left = findChildByFieldName(node, "left");
             ASTUtil.ASTNode right = findChildByFieldName(node, "right");
             paramName = left != null ? left.getText(sourceCode) : null;
@@ -255,7 +256,7 @@ public class JSASTVisitor extends ASTVisitor {
         }
 
         if (paramName != null) {
-            LocationInfo location = new LocationInfo(filePath, node.startPoint, node.endPoint,
+            LocationInfo location = new LocationInfo(filePath, node.getStartPoint(), node.getEndPoint(),
                     CodeElementType.PARAMETER_DECLARATION);
             UMLParameter parameter = new UMLParameter(paramName, new UMLType("any"), location);
             if (defaultValue != null) {
@@ -276,7 +277,7 @@ public class JSASTVisitor extends ASTVisitor {
         LOGGER.info("Processing field: {}", fieldName);
         if (fieldName == null) return;
 
-        LocationInfo location = new LocationInfo(filePath, node.startPoint, node.endPoint,
+        LocationInfo location = new LocationInfo(filePath, node.getStartPoint(), node.getEndPoint(),
                 CodeElementType.FIELD_DECLARATION);
 
         UMLAttribute attribute = new UMLAttribute(fieldName, new UMLType("any"), location);
@@ -302,7 +303,7 @@ public class JSASTVisitor extends ASTVisitor {
     @Override
     protected void processImport(ASTUtil.ASTNode node) {
         LOGGER.info("Processing import node");
-        LocationInfo location = new LocationInfo(filePath, node.startPoint, node.endPoint,
+        LocationInfo location = new LocationInfo(filePath, node.getStartPoint(), node.getEndPoint(),
                 CodeElementType.IMPORT_DECLARATION);
 
         // Debug print of the AST structure
@@ -334,12 +335,12 @@ public class JSASTVisitor extends ASTVisitor {
     }
 
     private void processImportChildren(ASTUtil.ASTNode node, List<String> importNames) {
-        for (ASTUtil.ASTNode child : node.children) {
-            if (child.type.equals("import_clause")) {
+        for (ASTUtil.ASTNode child : node.getChildren()) {
+            if (child.getType().equals("import_clause")) {
                 processImportChildren(child, importNames);
-            } else if (child.type.equals("named_imports")) {
+            } else if (child.getType().equals("named_imports")) {
                 processImportChildren(child, importNames);
-            } else if (child.type.equals("import_specifier")) {
+            } else if (child.getType().equals("import_specifier")) {
                 ASTUtil.ASTNode identifier = findChildByType(child, "identifier");
                 if (identifier != null) {
                     String name = identifier.getText(sourceCode);
@@ -356,11 +357,11 @@ public class JSASTVisitor extends ASTVisitor {
         String indent = "  ".repeat(depth);
         LOGGER.info("{}[{}] '{}' (children: {})",
                 indent,
-                node.type,
+                node.getType(),
                 node.getText(sourceCode).replaceAll("\n", "\\n"),
-                node.children.size());
+                node.getChildren().size());
 
-        for (ASTUtil.ASTNode child : node.children) {
+        for (ASTUtil.ASTNode child : node.getChildren()) {
             printNodeStructure(child, depth + 1);
         }
     }
@@ -374,15 +375,15 @@ public class JSASTVisitor extends ASTVisitor {
 
     private String extractMethodName(ASTUtil.ASTNode node) {
         String methodName = null;
-        if (node.type.equals("method_definition")) {
+        if (node.getType().equals("method_definition")) {
             methodName = getChildText(node, "property_identifier");
-        } else if (node.type.equals("function_declaration")) {
+        } else if (node.getType().equals("function_declaration")) {
             methodName = getChildText(node, "identifier");
-        } else if (node.type.equals("arrow_function")) {
+        } else if (node.getType().equals("arrow_function")) {
             // Get name from parent variable declarator
-            ASTUtil.ASTNode parent = node.parent;
-            if (parent != null && parent.type.equals("variable_declarator")) {
-                methodName = getChildText(parent, "identifier");
+            Optional<ASTUtil.ASTNode> parentNode = node.getParent();
+            if (parentNode.isPresent() && parentNode.get().getType().equals("variable_declarator")) {
+                methodName = getChildText(parentNode.get(), "identifier");
             }
         }
         LOGGER.info("Extracted method name: {}", methodName);

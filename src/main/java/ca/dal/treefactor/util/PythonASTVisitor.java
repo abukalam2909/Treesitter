@@ -34,7 +34,7 @@ public class PythonASTVisitor extends ASTVisitor {
     @Override
     public void visit(ASTUtil.ASTNode node) {
         // Process node based on its type
-        switch(node.type) {
+        switch(node.getType()) {
             case "module":
                 processModule(node);
                 break;
@@ -62,7 +62,7 @@ public class PythonASTVisitor extends ASTVisitor {
         }
 
         // Visit children
-        for(ASTUtil.ASTNode child : node.children) {
+        for(ASTUtil.ASTNode child : node.getChildren()) {
             visit(child);
         }
     }
@@ -74,7 +74,7 @@ public class PythonASTVisitor extends ASTVisitor {
      */
     @Override
     protected void processClass(ASTUtil.ASTNode node) {
-        LOGGER.info("Processing class node: {}", node.type);
+        LOGGER.info("Processing class node: {}", node.getType());
 
         // Extract class definition and any decorators
         ClassDefinitionInfo classInfo = getClassDefinitionInfo(node);
@@ -125,11 +125,11 @@ public class PythonASTVisitor extends ASTVisitor {
         List<ASTUtil.ASTNode> decorators = new ArrayList<>();
         ASTUtil.ASTNode classNode;
 
-        if (node.type.equals("decorated_definition")) {
+        if (node.getType().equals("decorated_definition")) {
             LOGGER.info("Found decorated definition");
             // Extract decorators from decorated definition
-            for (ASTUtil.ASTNode child : node.children) {
-                if (child.type.equals("decorator")) {
+            for (ASTUtil.ASTNode child : node.getChildren()) {
+                if (child.getType().equals("decorator")) {
                     decorators.add(child);
                 }
             }
@@ -148,8 +148,8 @@ public class PythonASTVisitor extends ASTVisitor {
     private UMLClass createUMLClass(ASTUtil.ASTNode node, String className) {
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
-                node.startPoint,
-                node.endPoint,
+                node.getStartPoint(),
+                node.getEndPoint(),
                 CodeElementType.CLASS_DECLARATION
         );
         return new UMLClass(extractModuleName(filePath), className, locationInfo);
@@ -187,7 +187,7 @@ public class PythonASTVisitor extends ASTVisitor {
         LOGGER.info("Class body AST:");
         LOGGER.info(ASTUtil.printAST(body, 0));
 
-        for (ASTUtil.ASTNode child : body.children) {
+        for (ASTUtil.ASTNode child : body.getChildren()) {
             processClassBodyNode(child);
         }
     }
@@ -197,9 +197,9 @@ public class PythonASTVisitor extends ASTVisitor {
      * Routes each node to its appropriate processor based on its type.
      */
     private void processClassBodyNode(ASTUtil.ASTNode child) {
-        LOGGER.info("Processing class body node: {}", child.type);
+        LOGGER.info("Processing class body node: {}", child.getType());
 
-        switch(child.type) {
+        switch(child.getType()) {
             case "function_definition":
                 processMethod(child);
                 break;
@@ -241,7 +241,7 @@ public class PythonASTVisitor extends ASTVisitor {
             processField(assignmentNode);
         }
         // Handle docstrings
-        else if (child.children.size() == 1 && child.children.get(0).type.equals("string")) {
+        else if (child.getChildren().size() == 1 && child.getChildren().get(0).getType().equals("string")) {
             processDocstring(child, currentClass);
         }
     }
@@ -273,8 +273,8 @@ public class PythonASTVisitor extends ASTVisitor {
 
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
-                node.startPoint,
-                node.endPoint,
+                node.getStartPoint(),
+                node.getEndPoint(),
                 CodeElementType.METHOD_DECLARATION
         );
 
@@ -295,7 +295,7 @@ public class PythonASTVisitor extends ASTVisitor {
         if (body != null) {
             builder.body(body.getText(sourceCode));
             // Visit body nodes to process attributes
-            for (ASTUtil.ASTNode child : body.children) {
+            for (ASTUtil.ASTNode child : body.getChildren()) {
                 visit(child);
             }
         }
@@ -320,9 +320,9 @@ public class PythonASTVisitor extends ASTVisitor {
         ASTUtil.ASTNode leftNode = findChildByFieldName(node, "left");
         if (leftNode == null) return;
 
-        if (leftNode.type.equals("attribute")) {
+        if (leftNode.getType().equals("attribute")) {
             processInstanceAttribute(node, leftNode);
-        } else if (leftNode.type.equals("identifier") && !isInMethod()) {
+        } else if (leftNode.getType().equals("identifier") && !isInMethod()) {
             processClassAttribute(node, leftNode);
         }
     }
@@ -332,7 +332,7 @@ public class PythonASTVisitor extends ASTVisitor {
             LOGGER.info("No current class context");
             return false;
         }
-        return node.type.equals("assignment");
+        return node.getType().equals("assignment");
     }
 
     private void processInstanceAttribute(ASTUtil.ASTNode node, ASTUtil.ASTNode leftNode) {
@@ -361,8 +361,8 @@ public class PythonASTVisitor extends ASTVisitor {
     private UMLAttribute createAttribute(ASTUtil.ASTNode node, String fieldName, boolean isStatic) {
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
-                node.startPoint,
-                node.endPoint,
+                node.getStartPoint(),
+                node.getEndPoint(),
                 CodeElementType.FIELD_DECLARATION
         );
 
@@ -394,8 +394,8 @@ public class PythonASTVisitor extends ASTVisitor {
         String importedName = nameNode.getText(sourceCode);
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
-                node.startPoint,
-                node.endPoint,
+                node.getStartPoint(),
+                node.getEndPoint(),
                 CodeElementType.IMPORT_DECLARATION
         );
 
@@ -420,14 +420,14 @@ public class PythonASTVisitor extends ASTVisitor {
 
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
-                node.startPoint,
-                node.endPoint,
+                node.getStartPoint(),
+                node.getEndPoint(),
                 CodeElementType.IMPORT_DECLARATION
         );
 
         // Process each imported name
-        for (ASTUtil.ASTNode child : node.children) {
-            if (child.fieldName != null && child.fieldName.equals("name")) {
+        for (ASTUtil.ASTNode child : node.getChildren()) {
+            if (child.getFieldName() != null && child.getFieldName().equals("name")) {
                 String importedName = child.getText(sourceCode);
                 LOGGER.info("Importing: {}", importedName);
 
@@ -491,10 +491,10 @@ public class PythonASTVisitor extends ASTVisitor {
 
         boolean keywordOnlyMode = false;
 
-        for (ASTUtil.ASTNode param : parameters.children) {
-            LOGGER.info("Parameter node type: {}", param.type);
+        for (ASTUtil.ASTNode param : parameters.getChildren()) {
+            LOGGER.info("Parameter node type: {}", param.getType());
 
-            if (param.type.equals("keyword_separator")) {
+            if (param.getType().equals("keyword_separator")) {
                 LOGGER.info("Found keyword separator");
                 keywordOnlyMode = true;
                 continue;
@@ -508,7 +508,7 @@ public class PythonASTVisitor extends ASTVisitor {
      * Routes parameter processing based on parameter type
      */
     private void processParameter(ASTUtil.ASTNode param, UMLOperation.Builder builder, boolean keywordOnlyMode) {
-        switch (param.type) {
+        switch (param.getType()) {
             case "typed_default_parameter":
                 processTypedDefaultParameter(param, builder, keywordOnlyMode);
                 break;
@@ -602,8 +602,8 @@ public class PythonASTVisitor extends ASTVisitor {
     private UMLParameter createParameter(ASTUtil.ASTNode param, String name, UMLType type) {
         LocationInfo paramLocation = new LocationInfo(
                 filePath,
-                param.startPoint,
-                param.endPoint,
+                param.getStartPoint(),
+                param.getEndPoint(),
                 CodeElementType.PARAMETER_DECLARATION
         );
         return new UMLParameter(name, type, paramLocation);
@@ -656,7 +656,7 @@ public class PythonASTVisitor extends ASTVisitor {
     private String processGenericType(ASTUtil.ASTNode typeNode) {
         if (typeNode == null) return "object";
 
-        LOGGER.info("Processing type node: {}", typeNode.type);
+        LOGGER.info("Processing type node: {}", typeNode.getType());
 
         // Check if this is a generic type (e.g., List[str]) or a simple type (e.g., int)
         ASTUtil.ASTNode genericNode = findChildByType(typeNode, "generic_type");
@@ -714,8 +714,8 @@ public class PythonASTVisitor extends ASTVisitor {
     private List<String> collectTypeParameters(ASTUtil.ASTNode genericNode) {
         List<String> typeParams = new ArrayList<>();
 
-        for (ASTUtil.ASTNode child : genericNode.children) {
-            if (child.type.equals("type_parameter")) {
+        for (ASTUtil.ASTNode child : genericNode.getChildren()) {
+            if (child.getType().equals("type_parameter")) {
                 processTypeParameter(child, typeParams);
             }
         }
@@ -731,10 +731,10 @@ public class PythonASTVisitor extends ASTVisitor {
      * @param typeParams List to add the processed type parameter to
      */
     private void processTypeParameter(ASTUtil.ASTNode paramNode, List<String> typeParams) {
-        LOGGER.info("Processing type parameter node, child count: {}", paramNode.children.size());
+        LOGGER.info("Processing type parameter node, child count: {}", paramNode.getChildren().size());
 
-        for (ASTUtil.ASTNode paramChild : paramNode.children) {
-            if (paramChild.type.equals("type")) {
+        for (ASTUtil.ASTNode paramChild : paramNode.getChildren()) {
+            if (paramChild.getType().equals("type")) {
                 String paramType = extractParameterType(paramChild);
                 if (paramType != null) {
                     typeParams.add(paramType);
@@ -816,8 +816,8 @@ public class PythonASTVisitor extends ASTVisitor {
 
                 LocationInfo location = new LocationInfo(
                         filePath,
-                        decorator.startPoint,
-                        decorator.endPoint,
+                        decorator.getStartPoint(),
+                        decorator.getEndPoint(),
                         CodeElementType.ANNOTATION_TYPE_DECLARATION
                 );
 
@@ -837,8 +837,8 @@ public class PythonASTVisitor extends ASTVisitor {
         ASTUtil.ASTNode argList = findChildByType(node, "argument_list");
         if (argList == null) return;
 
-        for (ASTUtil.ASTNode arg : argList.children) {
-            if (arg.type.equals("identifier")) {
+        for (ASTUtil.ASTNode arg : argList.getChildren()) {
+            if (arg.getType().equals("identifier")) {
                 umlClass.addSuperclass(arg.getText(sourceCode));
             }
         }
@@ -846,14 +846,14 @@ public class PythonASTVisitor extends ASTVisitor {
 
     private void processDocstring(ASTUtil.ASTNode node, Object target) {
         ASTUtil.ASTNode body = findChildByType(node, "block");
-        if (body == null || body.children.isEmpty()) return;
+        if (body == null || body.getChildren().isEmpty()) return;
 
-        ASTUtil.ASTNode firstChild = body.children.get(0);
-        if (firstChild.type.equals("string")) {
+        ASTUtil.ASTNode firstChild = body.getChildren().get(0);
+        if (firstChild.getType().equals("string")) {
             LocationInfo location = new LocationInfo(
                     filePath,
-                    firstChild.startPoint,
-                    firstChild.endPoint,
+                    firstChild.getStartPoint(),
+                    firstChild.getEndPoint(),
                     CodeElementType.COMMENT
             );
 
