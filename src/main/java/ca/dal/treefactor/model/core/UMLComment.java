@@ -43,29 +43,38 @@ public class UMLComment {
     }
 
     public String getCleanText() {
-        String cleaned = text;
-        // Remove common comment markers based on type
-        switch (type) {
-            case SINGLE_LINE:
-                cleaned = cleaned.replaceAll("^(//|#|--)+\\s*", "");
-                break;
-            case MULTI_LINE:
-                cleaned = cleaned.replaceAll("^/\\*+\\s*", "")
-                        .replaceAll("\\s*\\*/$", "")
-                        .replaceAll("^\"\"\"\\s*", "")
-                        .replaceAll("\\s*\"\"\"$", "")
-                        .replaceAll("^--\\[\\[\\s*", "")
-                        .replaceAll("\\s*\\]\\]$", "");
-                break;
-            case DOC_COMMENT:
-                cleaned = cleaned.replaceAll("^/\\*\\*+\\s*", "")
-                        .replaceAll("\\s*\\*/$", "")
-                        .replaceAll("^'''\\s*", "")
-                        .replaceAll("\\s*'''$", "");
-                cleaned = cleaned.replaceAll("^\\s*\\*\\s*", ""); // Remove leading asterisks
-                break;
-        }
-        return cleaned.trim();
+        return switch (type) {
+            case SINGLE_LINE -> cleanSingleLineComment();
+            case MULTI_LINE -> cleanMultiLineComment();
+            case DOC_COMMENT -> cleanDocComment();
+            case INLINE -> text.trim();
+        };
+    }
+
+    private String cleanSingleLineComment() {
+        return text.replaceAll("^(//|#|--)+\\s*", "").trim();
+    }
+
+    private String cleanMultiLineComment() {
+        return text
+                .replaceAll("^/\\*+\\s*", "")
+                .replaceAll("\\s*\\*/$", "")
+                .replaceAll("^\"\"\"\\s*", "")
+                .replaceAll("\\s*\"\"\"$", "")
+                .replaceAll("^--\\[\\[\\s*", "")
+                .replaceAll("\\s*\\]\\]$", "")
+                .trim();
+    }
+
+    private String cleanDocComment() {
+        String cleaned = text
+                .replaceAll("^/\\*\\*+\\s*", "")
+                .replaceAll("\\s*\\*/$", "")
+                .replaceAll("^'''\\s*", "")
+                .replaceAll("\\s*'''$", "");
+        return cleaned
+                .replaceAll("^\\s*\\*\\s*", "")
+                .trim();
     }
 
     @Override

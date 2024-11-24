@@ -110,6 +110,39 @@ public class UMLModelDiff {
         }
     }
 
+    /**
+     * Constants used for determining operation similarity and matching thresholds.
+     * These thresholds are used to determine when operations should be considered related
+     * or matching based on various criteria.
+     */
+    public class OperationThresholds {
+        /**
+         * Minimum similarity score required to consider two operation bodies as matching.
+         * Operations with body similarity below this threshold will not be considered matches.
+         * The value of 0.7 (70%) was chosen based on empirical testing to balance between:
+         * - Being high enough to avoid false positives
+         * - Being low enough to catch operations that have been significantly modified
+         * - Accommodating common refactoring patterns that modify method bodies
+         */
+        public static final double BODY_SIMILARITY_THRESHOLD = 0.7;
+
+        /**
+         * Minimum ratio of matched statements required to consider operations as related.
+         * This is used when comparing operation bodies statement by statement.
+         */
+        public static final double STATEMENT_MATCH_THRESHOLD = 0.5;
+
+        /**
+         * Maximum Levenshtein distance allowed between method names to consider them related.
+         * This helps identify renamed methods that maintain similar functionality.
+         */
+        public static final int MAX_NAME_EDIT_DISTANCE = 2;
+
+        private OperationThresholds() {
+            // Prevent instantiation of this constants class
+        }
+    }
+
     private void matchOperationsBasedOnBodySimilarity() {
         Set<String> unmatchedOldKeys = new HashSet<>(oldOperations.keySet());
         unmatchedOldKeys.removeAll(newOperations.keySet());
@@ -134,7 +167,7 @@ public class UMLModelDiff {
                 UMLOperationBodyMapper mapper = new UMLOperationBodyMapper(oldOp, newOp);
                 double similarity = mapper.bodyComparatorScore();
 
-                if (similarity > maxSimilarity && similarity >= 0.7) {
+                if (similarity > maxSimilarity && similarity >= OperationThresholds.BODY_SIMILARITY_THRESHOLD) {
                     maxSimilarity = similarity;
                     bestMatch = newOp;
                     bestMapper = mapper;
@@ -156,40 +189,134 @@ public class UMLModelDiff {
     }
 
     private boolean areMethodNamesRelated(String oldName, String newName) {
-        if (oldName.equals(newName)) return true;
+        // Quick exact match check
+        if (oldName.equals(newName)) {
+            return true;
+        }
 
-        // Handle common rename patterns
+        // Normalize names
         String normalizedOld = normalizeMethodName(oldName);
         String normalizedNew = normalizeMethodName(newName);
 
-        return normalizedOld.equals(normalizedNew) ||
-                normalizedOld.contains(normalizedNew) ||
-                normalizedNew.contains(normalizedOld) ||
-                getLevenshteinDistance(normalizedOld, normalizedNew) <= 2;
+        // Check various similarity conditions
+        boolean exactNormalizedMatch = normalizedOld.equals(normalizedNew);
+        boolean oldContainsNew = normalizedOld.contains(normalizedNew);
+        boolean newContainsOld = normalizedNew.contains(normalizedOld);
+        boolean closeEditDistance = getLevenshteinDistance(normalizedOld, normalizedNew)
+                <= OperationThresholds.MAX_NAME_EDIT_DISTANCE;
+
+        return exactNormalizedMatch ||
+                oldContainsNew ||
+                newContainsOld ||
+                closeEditDistance;
     }
 
+    /**
+     * Constants for method name normalization patterns.
+     * These patterns are used to standardize method names by removing common prefixes and suffixes.
+     */
+    public class MethodNamePatterns {
+        // Common method name prefixes that can be removed during normalization
+        private static final String[] PREFIX_PATTERNS = {
+                "get",
+                "set",
+                "is",
+                "has",
+                "do",
+                "make",
+                "create",
+                "build",
+                "compute",
+                "calculate",
+                "find",
+                "search",
+                "fetch"
+        };
+
+        // Common method name suffixes that can be removed during normalization
+        private static final String[] SUFFIX_PATTERNS = {
+                "Async",
+                "Impl",
+                "Internal",
+                "Helper"
+        };
+
+        // Compiled patterns for better performance
+        public static final String PREFIX_REGEX = "^(" + String.join("|", PREFIX_PATTERNS) + ")";
+        public static final String SUFFIX_REGEX = "(" + String.join("|", SUFFIX_PATTERNS) + ")$";
+
+        private MethodNamePatterns() {
+            // Prevent instantiation
+        }
+    }
+
+    /**
+     * Normalizes a method name by removing common prefixes and suffixes
+     * and converting to lowercase for case-insensitive comparison.
+     *
+     * @param name The original method name
+     * @return The normalized method name
+     */
     private String normalizeMethodName(String name) {
-        return name.replaceAll("^(get|set|is|has|do|make|create|build|compute|calculate|find|search|fetch)", "")
-                .replaceAll("(Async|Impl|Internal|Helper)$", "")
+        return name
+                .replaceAll(MethodNamePatterns.PREFIX_REGEX, "")
+                .replaceAll(MethodNamePatterns.SUFFIX_REGEX, "")
                 .toLowerCase();
     }
 
+
+    /**
+     * Calculates the Levenshtein distance between two strings.
+     * The Levenshtein distance is the minimum number of single-character edits
+     * required to change one string into another.
+     */
     private int getLevenshteinDistance(String s1, String s2) {
         int[][] dp = new int[s1.length() + 1][s2.length() + 1];
-
-        for (int i = 0; i <= s1.length(); i++) {
-            for (int j = 0; j <= s2.length(); j++) {
-                if (i == 0) {
-                    dp[i][j] = j;
-                } else if (j == 0) {
-                    dp[i][j] = i;
-                } else {
-                    dp[i][j] = Math.min(dp[i - 1][j - 1] +
-                                    (s1.charAt(i - 1) == s2.charAt(j - 1) ? 0 : 1),
-                            Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1));
-                }
-            }
-        }
+        initializeFirstRow(dp, s2.length());
+        computeLevenshteinMatrix(dp, s1, s2);
         return dp[s1.length()][s2.length()];
     }
+
+    /**
+     * Initializes the first row and column of the distance matrix.
+     */
+    private void initializeFirstRow(int[][] dp, int length) {
+        // Initialize first row
+        for (int j = 0; j <= length; j++) {
+            dp[0][j] = j;
+        }
+    }
+
+    /**
+     * Computes the Levenshtein distance matrix.
+     */
+    private void computeLevenshteinMatrix(int[][] dp, String s1, String s2) {
+        for (int i = 1; i <= s1.length(); i++) {
+            // Initialize first column
+            dp[i][0] = i;
+
+            for (int j = 1; j <= s2.length(); j++) {
+                dp[i][j] = getMinimumEditDistance(
+                        dp, i, j,
+                        s1.charAt(i - 1) == s2.charAt(j - 1)
+                );
+            }
+        }
+    }
+
+    /**
+     * Calculates the minimum edit distance for a position in the matrix.
+     */
+    private int getMinimumEditDistance(int[][] dp, int i, int j, boolean charsMatch) {
+        // Cost of substitution
+        int substitutionCost = dp[i - 1][j - 1] + (charsMatch ? 0 : 1);
+
+        // Cost of insertion and deletion
+        int insertionCost = dp[i][j - 1] + 1;
+        int deletionCost = dp[i - 1][j] + 1;
+
+        // Return minimum of all operations
+        return Math.min(substitutionCost, Math.min(insertionCost, deletionCost));
+    }
+
 }

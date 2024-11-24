@@ -67,17 +67,67 @@ public class PythonASTVisitor extends ASTVisitor {
         }
     }
 
+
+    /**
+     * Process a class node to create a UML class representation.
+     * Handles both direct class definitions and decorated classes.
+     */
     @Override
     protected void processClass(ASTUtil.ASTNode node) {
         LOGGER.info("Processing class node: {}", node.type);
 
-        // Find the actual class definition node
-        ASTUtil.ASTNode classNode;
+        // Extract class definition and any decorators
+        ClassDefinitionInfo classInfo = getClassDefinitionInfo(node);
+        if (classInfo.classNode == null) return;
+
+        // Get class name
+        String className = extractClassName(classInfo.classNode);
+        if (className == null) return;
+
+        LOGGER.info("Found class: {}", className);
+
+        // Store current class and create new one
+        UMLClass previousClass = currentClass;
+        currentClass = createUMLClass(node, className);
+
+        // Process all class elements (decorators, inheritance, body, etc)
+        processClassElements(classInfo);
+
+        // Add class to model and restore previous class context
+        model.addClass(currentClass);
+        currentClass = previousClass;
+
+        LOGGER.info("Finished processing class: {}", className);
+    }
+
+    /**
+     * Helper class to hold class definition node and its decorators.
+     * Used to pass around related class information together.
+     */
+    private static class ClassDefinitionInfo {
+        final ASTUtil.ASTNode classNode;
+        final List<ASTUtil.ASTNode> decorators;
+
+        ClassDefinitionInfo(ASTUtil.ASTNode classNode, List<ASTUtil.ASTNode> decorators) {
+            this.classNode = classNode;
+            this.decorators = decorators;
+        }
+    }
+
+    /**
+     * Extracts the class definition node and any decorators from the input node.
+     * Handles both decorated and non-decorated class definitions.
+     *
+     * @param node The input node that could be either a class_definition or decorated_definition
+     * @return ClassDefinitionInfo containing the class node and any decorators found
+     */
+    private ClassDefinitionInfo getClassDefinitionInfo(ASTUtil.ASTNode node) {
         List<ASTUtil.ASTNode> decorators = new ArrayList<>();
+        ASTUtil.ASTNode classNode;
 
         if (node.type.equals("decorated_definition")) {
             LOGGER.info("Found decorated definition");
-            // Get decorators directly from decorated_definition
+            // Extract decorators from decorated definition
             for (ASTUtil.ASTNode child : node.children) {
                 if (child.type.equals("decorator")) {
                     decorators.add(child);
@@ -85,84 +135,115 @@ public class PythonASTVisitor extends ASTVisitor {
             }
             classNode = findChildByType(node, "class_definition");
         } else {
+            // Direct class definition without decorators
             classNode = node;
         }
 
-        if (classNode == null) return;
+        return new ClassDefinitionInfo(classNode, decorators);
+    }
 
-        String className = extractClassName(classNode);
-        if (className == null) return;
-
-        LOGGER.info("Found class: {}", className);
-
+    /**
+     * Creates a new UMLClass instance with the given name and location information.
+     */
+    private UMLClass createUMLClass(ASTUtil.ASTNode node, String className) {
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
                 node.startPoint,
                 node.endPoint,
                 CodeElementType.CLASS_DECLARATION
         );
+        return new UMLClass(extractModuleName(filePath), className, locationInfo);
+    }
 
-        UMLClass previousClass = currentClass;
-        currentClass = new UMLClass(extractModuleName(filePath), className, locationInfo);
-
-        // Process decorators if any were found
-        if (!decorators.isEmpty()) {
-            LOGGER.info("Processing {} decorators", decorators.size());
-            processDecorators(decorators, currentClass);
+    /**
+     * Processes all elements of a class including decorators, inheritance,
+     * docstrings, and class body.
+     */
+    private void processClassElements(ClassDefinitionInfo classInfo) {
+        // Process class features
+        if (!classInfo.decorators.isEmpty()) {
+            LOGGER.info("Processing {} decorators", classInfo.decorators.size());
+            processDecorators(classInfo.decorators, currentClass);
         }
 
-        // Process inheritance
-        processInheritance(classNode, currentClass);
+        // Process inheritance and documentation
+        processInheritance(classInfo.classNode, currentClass);
+        processDocstring(classInfo.classNode, currentClass);
 
-        // Process docstring
-        processDocstring(classNode, currentClass);
-
-// Add to scope and process body
-        currentScope.add(className);
-        ASTUtil.ASTNode body = findChildByType(classNode, "block");
-        if (body != null) {
-            // Print AST for debugging
-            LOGGER.info("Class body AST:");
-            LOGGER.info(ASTUtil.printAST(body, 0));
-
-            // Process body contents directly
-            for (ASTUtil.ASTNode child : body.children) {
-                LOGGER.info("Processing class body node: {}", child.type);
-                if (child.type.equals("function_definition")) {
-                    processMethod(child);
-                } else if (child.type.equals("decorated_definition")) {
-                    ASTUtil.ASTNode methodNode = findChildByType(child, "function_definition");
-                    if (methodNode != null) {
-                        processMethod(child);
-                    }
-                } else if (child.type.equals("expression_statement")) {
-                    // Check if it's an assignment
-                    ASTUtil.ASTNode assignmentNode = findChildByType(child, "assignment");
-                    if (assignmentNode != null) {
-                        LOGGER.info("Found assignment in class body: {}", assignmentNode.getText(sourceCode));
-                        processField(assignmentNode);
-                    }
-                    // Handle docstrings
-                    else if (child.children.size() == 1 &&
-                            child.children.get(0).type.equals("string")) {
-                        processDocstring(child, currentClass);
-                    }
-                } else if (child.type.equals("assignment")) {  // Direct assignment case
-                    LOGGER.info("Found direct assignment in class body: {}", child.getText(sourceCode));
-                    processField(child);
-                } else if (child.type.equals("class_definition")) {
-                    processClass(child);
-                }
-            }
-        }
-
+        // Add to scope and process body
+        currentScope.add(currentClass.getName());
+        processClassBody(classInfo.classNode);
         currentScope.remove(currentScope.size() - 1);
+    }
 
-        // Finalize class processing
-        model.addClass(currentClass);
-        currentClass = previousClass;
+    /**
+     * Processes the class body, including methods, fields, and nested classes.
+     * @param classNode The class definition node containing the body
+     */
+    private void processClassBody(ASTUtil.ASTNode classNode) {
+        ASTUtil.ASTNode body = findChildByType(classNode, "block");
+        if (body == null) return;
 
-        LOGGER.info("Finished processing class: {}", className);
+        LOGGER.info("Class body AST:");
+        LOGGER.info(ASTUtil.printAST(body, 0));
+
+        for (ASTUtil.ASTNode child : body.children) {
+            processClassBodyNode(child);
+        }
+    }
+
+    /**
+     * Processes a single node in the class body.
+     * Routes each node to its appropriate processor based on its type.
+     */
+    private void processClassBodyNode(ASTUtil.ASTNode child) {
+        LOGGER.info("Processing class body node: {}", child.type);
+
+        switch(child.type) {
+            case "function_definition":
+                processMethod(child);
+                break;
+            case "decorated_definition":
+                processDecoratedMethod(child);
+                break;
+            case "expression_statement":
+                processClassExpression(child);
+                break;
+            case "assignment":
+                processField(child);
+                break;
+            case "class_definition":
+                processClass(child);  // Handle nested classes
+                break;
+        }
+    }
+
+    /**
+     * Processes a decorated method definition.
+     * Extracts the method node from the decorator and processes it.
+     */
+    private void processDecoratedMethod(ASTUtil.ASTNode node) {
+        ASTUtil.ASTNode methodNode = findChildByType(node, "function_definition");
+        if (methodNode != null) {
+            processMethod(node);
+        }
+    }
+
+    /**
+     * Processes a class expression statement.
+     * Handles both assignments and docstrings.
+     */
+    private void processClassExpression(ASTUtil.ASTNode child) {
+        // Handle assignments
+        ASTUtil.ASTNode assignmentNode = findChildByType(child, "assignment");
+        if (assignmentNode != null) {
+            LOGGER.info("Found assignment in class body: {}", assignmentNode.getText(sourceCode));
+            processField(assignmentNode);
+        }
+        // Handle docstrings
+        else if (child.children.size() == 1 && child.children.get(0).type.equals("string")) {
+            processDocstring(child, currentClass);
+        }
     }
 
     // Add this as a separate helper method in the class
@@ -233,102 +314,76 @@ public class PythonASTVisitor extends ASTVisitor {
         currentScope.remove(currentScope.size() - 1);
     }
 
-    @Override
     protected void processField(ASTUtil.ASTNode node) {
-        LOGGER.info("Processing potential field node: {}", node.type);
+        if (!shouldProcessField(node)) return;
 
-        // Skip if not in a class context
+        ASTUtil.ASTNode leftNode = findChildByFieldName(node, "left");
+        if (leftNode == null) return;
+
+        if (leftNode.type.equals("attribute")) {
+            processInstanceAttribute(node, leftNode);
+        } else if (leftNode.type.equals("identifier") && !isInMethod()) {
+            processClassAttribute(node, leftNode);
+        }
+    }
+
+    private boolean shouldProcessField(ASTUtil.ASTNode node) {
         if (currentClass == null) {
             LOGGER.info("No current class context");
-            return;
+            return false;
         }
+        return node.type.equals("assignment");
+    }
 
-        if (node.type.equals("assignment")) {
-            ASTUtil.ASTNode leftNode = findChildByFieldName(node, "left");
-            LOGGER.info("Left node type: {}", (leftNode != null ? leftNode.type : "null"));
+    private void processInstanceAttribute(ASTUtil.ASTNode node, ASTUtil.ASTNode leftNode) {
+        ASTUtil.ASTNode objectNode = findChildByFieldName(leftNode, "object");
+        ASTUtil.ASTNode attributeNode = findChildByFieldName(leftNode, "attribute");
 
-            if (leftNode != null) {
-                if (leftNode.type.equals("attribute")) {
-                    // Handle instance attributes (self.attribute assignments in methods)
-                    ASTUtil.ASTNode objectNode = findChildByFieldName(leftNode, "object");
-                    ASTUtil.ASTNode attributeNode = findChildByFieldName(leftNode, "attribute");
+        if (!isValidSelfAttribute(objectNode, attributeNode)) return;
 
-                    if (objectNode != null &&
-                            attributeNode != null &&
-                            objectNode.getText(sourceCode).equals("self")) {
+        String fieldName = attributeNode.getText(sourceCode);
+        UMLAttribute attribute = createAttribute(node, fieldName, false);
+        currentClass.addAttribute(attribute);
+    }
 
-                        String fieldName = attributeNode.getText(sourceCode);
-                        LOGGER.info("Found instance attribute: {}", fieldName);
+    private boolean isValidSelfAttribute(ASTUtil.ASTNode objectNode, ASTUtil.ASTNode attributeNode) {
+        return objectNode != null &&
+                attributeNode != null &&
+                objectNode.getText(sourceCode).equals("self");
+    }
 
-                        LocationInfo locationInfo = new LocationInfo(
-                                filePath,
-                                node.startPoint,
-                                node.endPoint,
-                                CodeElementType.FIELD_DECLARATION
-                        );
+    private void processClassAttribute(ASTUtil.ASTNode node, ASTUtil.ASTNode leftNode) {
+        String fieldName = leftNode.getText(sourceCode);
+        UMLAttribute attribute = createAttribute(node, fieldName, true);
+        currentClass.addAttribute(attribute);
+    }
 
-                        UMLAttribute attribute = new UMLAttribute(
-                                fieldName,
-                                new UMLType("object"),
-                                locationInfo
-                        );
+    private UMLAttribute createAttribute(ASTUtil.ASTNode node, String fieldName, boolean isStatic) {
+        LocationInfo locationInfo = new LocationInfo(
+                filePath,
+                node.startPoint,
+                node.endPoint,
+                CodeElementType.FIELD_DECLARATION
+        );
 
-                        // Instance attributes are not static
-                        attribute.setStatic(false);
+        UMLAttribute attribute = new UMLAttribute(
+                fieldName,
+                new UMLType("object"),
+                locationInfo
+        );
 
-                        // Set visibility based on name convention
-                        attribute.setVisibility(determineVisibility(fieldName));
+        attribute.setStatic(isStatic);
+        attribute.setVisibility(determineVisibility(fieldName));
+        setInitialValue(node, attribute);
 
-                        // Get initial value if present
-                        ASTUtil.ASTNode rightNode = findChildByFieldName(node, "right");
-                        if (rightNode != null) {
-                            attribute.setInitialValue(rightNode.getText(sourceCode));
-                            LOGGER.info("Set initial value: {}", rightNode.getText(sourceCode));
-                        }
+        return attribute;
+    }
 
-                        currentClass.addAttribute(attribute);
-                        LOGGER.info("Added instance attribute: {}", fieldName);
-                    }
-                } else if (leftNode.type.equals("identifier") && !isInMethod()) {
-                    // Handle class attributes (direct assignments in class body)
-                    String fieldName = leftNode.getText(sourceCode);
-                    LOGGER.info("Found class attribute: {}", fieldName);
-
-                    LocationInfo locationInfo = new LocationInfo(
-                            filePath,
-                            node.startPoint,
-                            node.endPoint,
-                            CodeElementType.FIELD_DECLARATION
-                    );
-
-                    UMLAttribute attribute = new UMLAttribute(
-                            fieldName,
-                            new UMLType("object"),
-                            locationInfo
-                    );
-
-                    // Class attributes are static
-                    attribute.setStatic(true);
-
-                    // Set visibility based on name convention
-                    attribute.setVisibility(determineVisibility(fieldName));
-
-                    // Get initial value if present
-                    ASTUtil.ASTNode rightNode = findChildByFieldName(node, "right");
-                    if (rightNode != null) {
-                        attribute.setInitialValue(rightNode.getText(sourceCode));
-                        LOGGER.info("Set initial value: {}", rightNode.getText(sourceCode));
-                    }
-
-                    currentClass.addAttribute(attribute);
-                    LOGGER.info("Added class attribute: {}", fieldName);
-                }
-            }
+    private void setInitialValue(ASTUtil.ASTNode node, UMLAttribute attribute) {
+        ASTUtil.ASTNode rightNode = findChildByFieldName(node, "right");
+        if (rightNode != null) {
+            attribute.setInitialValue(rightNode.getText(sourceCode));
         }
-
-        // Print current attributes for debugging
-        LOGGER.info("Current class attributes: {}",
-                (currentClass != null ? currentClass.getAttributes().size() : "no class"));
     }
 
     @Override
@@ -423,142 +478,162 @@ public class PythonASTVisitor extends ASTVisitor {
         return aliasNode != null ? aliasNode.getText(sourceCode) : null;
     }
 
-
+    /**
+     * Processes method parameters, handling different types of parameters including:
+     * - Simple parameters
+     * - Typed parameters
+     * - Parameters with default values
+     * - Keyword-only parameters
+     */
     private void processParameters(ASTUtil.ASTNode node, UMLOperation.Builder builder) {
         ASTUtil.ASTNode parameters = findChildByType(node, "parameters");
         if (parameters == null) return;
 
-        // Flag to track if we've seen a keyword separator
         boolean keywordOnlyMode = false;
 
         for (ASTUtil.ASTNode param : parameters.children) {
             LOGGER.info("Parameter node type: {}", param.type);
 
-            // Check for keyword separator (*)
             if (param.type.equals("keyword_separator")) {
                 LOGGER.info("Found keyword separator");
                 keywordOnlyMode = true;
                 continue;
             }
 
-            if (param.type.equals("typed_default_parameter")) {
-                // Handle parameters with both type and default value
-                ASTUtil.ASTNode nameNode = findChildByFieldName(param, "name");
-                ASTUtil.ASTNode typeNode = findChildByFieldName(param, "type");
-                ASTUtil.ASTNode valueNode = findChildByFieldName(param, "value");
-
-                if (nameNode != null) {
-                    String paramName = nameNode.getText(sourceCode);
-                    UMLType paramType = new UMLType("object"); // Default type
-
-                    if (typeNode != null) {
-                        String typeName = processGenericType(typeNode);
-                        paramType = new UMLType(typeName);
-                    }
-
-                    LocationInfo paramLocation = new LocationInfo(
-                            filePath,
-                            param.startPoint,
-                            param.endPoint,
-                            CodeElementType.PARAMETER_DECLARATION
-                    );
-
-                    UMLParameter parameter = new UMLParameter(paramName, paramType, paramLocation);
-
-                    if (valueNode != null) {
-                        parameter.setDefaultValue(valueNode.getText(sourceCode));
-                        LOGGER.info("Set default value: {}", valueNode.getText(sourceCode));
-                    }
-                    parameter.setKeywordOnly(keywordOnlyMode);  // Set keyword-only flag
-                    builder.addParameter(parameter);
-                    LOGGER.info("Added typed parameter with default: {}", paramName +
-                            " type: " + paramType.getTypeName() +
-                            (keywordOnlyMode ? " (keyword-only)" : ""));
-                }
-            }
-            else if (param.type.equals("typed_parameter")) {
-                // Handle typed parameters
-                ASTUtil.ASTNode nameNode = findChildByType(param, "identifier");
-                ASTUtil.ASTNode typeNode = findChildByType(param, "type");
-
-                if (nameNode != null) {
-                    String paramName = nameNode.getText(sourceCode);
-                    UMLType paramType = new UMLType("object"); // Default type
-
-                    if (typeNode != null) {
-                        String typeName = processGenericType(typeNode);
-                        paramType = new UMLType(typeName);
-                    }
-
-                    LocationInfo paramLocation = new LocationInfo(
-                            filePath,
-                            param.startPoint,
-                            param.endPoint,
-                            CodeElementType.PARAMETER_DECLARATION
-                    );
-
-                    UMLParameter parameter = new UMLParameter(paramName, paramType, paramLocation);
-                    parameter.setKeywordOnly(keywordOnlyMode);  // Set keyword-only flag
-
-                    builder.addParameter(parameter);
-                    LOGGER.info("Added typed parameter: {}", paramName +
-                            " with type: " + paramType.getTypeName() +
-                            (keywordOnlyMode ? " (keyword-only)" : ""));
-                }
-            }
-            else if (param.type.equals("default_parameter")) {
-                // Handle parameters with default values
-                ASTUtil.ASTNode nameNode = findChildByFieldName(param, "name");
-                ASTUtil.ASTNode valueNode = findChildByFieldName(param, "value");
-
-                if (nameNode != null) {
-                    String paramName = nameNode.getText(sourceCode);
-                    LocationInfo paramLocation = new LocationInfo(
-                            filePath,
-                            param.startPoint,
-                            param.endPoint,
-                            CodeElementType.PARAMETER_DECLARATION
-                    );
-
-                    UMLParameter parameter = new UMLParameter(
-                            paramName,
-                            new UMLType("object"),
-                            paramLocation
-                    );
-
-                    if (valueNode != null) {
-                        parameter.setDefaultValue(valueNode.getText(sourceCode));
-                        LOGGER.info("Set default value: {}", valueNode.getText(sourceCode));
-                    }
-
-                    parameter.setKeywordOnly(keywordOnlyMode);  // Set keyword-only flag
-                    builder.addParameter(parameter);
-                    LOGGER.info("Added parameter with default: {}", paramName);
-                }
-            }
-            else if (param.type.equals("identifier")) {
-                // Handle simple parameters without type or default value
-                String paramName = param.getText(sourceCode);
-                LocationInfo paramLocation = new LocationInfo(
-                        filePath,
-                        param.startPoint,
-                        param.endPoint,
-                        CodeElementType.PARAMETER_DECLARATION
-                );
-
-                UMLParameter parameter = new UMLParameter(
-                        paramName,
-                        new UMLType("object"),
-                        paramLocation
-                );
-                parameter.setKeywordOnly(keywordOnlyMode);  // Set keyword-only flag
-
-                builder.addParameter(parameter);
-                LOGGER.info("Added simple parameter: " + paramName +
-                        (keywordOnlyMode ? " (keyword-only)" : ""));
-            }
+            processParameter(param, builder, keywordOnlyMode);
         }
     }
+
+    /**
+     * Routes parameter processing based on parameter type
+     */
+    private void processParameter(ASTUtil.ASTNode param, UMLOperation.Builder builder, boolean keywordOnlyMode) {
+        switch (param.type) {
+            case "typed_default_parameter":
+                processTypedDefaultParameter(param, builder, keywordOnlyMode);
+                break;
+            case "typed_parameter":
+                processTypedParameter(param, builder, keywordOnlyMode);
+                break;
+            case "default_parameter":
+                processDefaultParameter(param, builder, keywordOnlyMode);
+                break;
+            case "identifier":
+                processSimpleParameter(param, builder, keywordOnlyMode);
+                break;
+        }
+    }
+
+    /**
+     * Processes a parameter with both type annotation and default value
+     * Example: def func(param: str = "default")
+     */
+    private void processTypedDefaultParameter(ASTUtil.ASTNode param, UMLOperation.Builder builder, boolean keywordOnlyMode) {
+        ASTUtil.ASTNode nameNode = findChildByFieldName(param, "name");
+        if (nameNode == null) return;
+
+        String paramName = nameNode.getText(sourceCode);
+        UMLType paramType = getParameterType(param);
+        UMLParameter parameter = createParameter(param, paramName, paramType);
+
+        setParameterProperties(parameter, param, keywordOnlyMode);
+        builder.addParameter(parameter);
+
+        LOGGER.info("Added typed parameter with default: {} type: {} {}",
+                paramName, paramType.getTypeName(),
+                keywordOnlyMode ? "(keyword-only)" : "");
+    }
+
+    /**
+     * Processes a parameter with type annotation only
+     * Example: def func(param: str)
+     */
+    private void processTypedParameter(ASTUtil.ASTNode param, UMLOperation.Builder builder, boolean keywordOnlyMode) {
+        ASTUtil.ASTNode nameNode = findChildByType(param, "identifier");
+        if (nameNode == null) return;
+
+        String paramName = nameNode.getText(sourceCode);
+        UMLType paramType = getParameterType(param);
+        UMLParameter parameter = createParameter(param, paramName, paramType);
+
+        parameter.setKeywordOnly(keywordOnlyMode);
+        builder.addParameter(parameter);
+
+        LOGGER.info("Added typed parameter: {} with type: {} {}",
+                paramName, paramType.getTypeName(),
+                keywordOnlyMode ? "(keyword-only)" : "");
+    }
+
+    /**
+     * Processes a parameter with default value only
+     * Example: def func(param="default")
+     */
+    private void processDefaultParameter(ASTUtil.ASTNode param, UMLOperation.Builder builder, boolean keywordOnlyMode) {
+        ASTUtil.ASTNode nameNode = findChildByFieldName(param, "name");
+        if (nameNode == null) return;
+
+        String paramName = nameNode.getText(sourceCode);
+        UMLParameter parameter = createParameter(param, paramName, new UMLType("object"));
+
+        setParameterProperties(parameter, param, keywordOnlyMode);
+        builder.addParameter(parameter);
+
+        LOGGER.info("Added parameter with default: {}", paramName);
+    }
+
+    /**
+     * Processes a simple parameter without type or default value
+     * Example: def func(param)
+     */
+    private void processSimpleParameter(ASTUtil.ASTNode param, UMLOperation.Builder builder, boolean keywordOnlyMode) {
+        String paramName = param.getText(sourceCode);
+        UMLParameter parameter = createParameter(param, paramName, new UMLType("object"));
+
+        parameter.setKeywordOnly(keywordOnlyMode);
+        builder.addParameter(parameter);
+
+        LOGGER.info("Added simple parameter: {} {}",
+                paramName, keywordOnlyMode ? "(keyword-only)" : "");
+    }
+
+    /**
+     * Creates a base UMLParameter with location information
+     */
+    private UMLParameter createParameter(ASTUtil.ASTNode param, String name, UMLType type) {
+        LocationInfo paramLocation = new LocationInfo(
+                filePath,
+                param.startPoint,
+                param.endPoint,
+                CodeElementType.PARAMETER_DECLARATION
+        );
+        return new UMLParameter(name, type, paramLocation);
+    }
+
+    /**
+     * Gets the parameter type from type annotation, defaulting to "object" if not specified
+     */
+    private UMLType getParameterType(ASTUtil.ASTNode param) {
+        ASTUtil.ASTNode typeNode = findChildByFieldName(param, "type");
+        if (typeNode == null) {
+            return new UMLType("object");
+        }
+        String typeName = processGenericType(typeNode);
+        return new UMLType(typeName);
+    }
+
+    /**
+     * Sets common parameter properties like default value and keyword-only flag
+     */
+    private void setParameterProperties(UMLParameter parameter, ASTUtil.ASTNode param, boolean keywordOnlyMode) {
+        ASTUtil.ASTNode valueNode = findChildByFieldName(param, "value");
+        if (valueNode != null) {
+            parameter.setDefaultValue(valueNode.getText(sourceCode));
+            LOGGER.info("Set default value: {}", valueNode.getText(sourceCode));
+        }
+        parameter.setKeywordOnly(keywordOnlyMode);
+    }
+
+
     private void processReturnType(ASTUtil.ASTNode node, UMLOperation.Builder builder) {
         LOGGER.info("in processReturnType()");
 
@@ -571,71 +646,163 @@ public class PythonASTVisitor extends ASTVisitor {
             builder.returnType(new UMLType("None")); // Default Python return type
         }
     }
-
+    /**
+     * Process a type node and extract its type information.
+     * Handles both simple types (e.g., "str", "int") and generic types (e.g., "List[str]", "Dict[str, Any]").
+     *
+     * @param typeNode The AST node representing the type
+     * @return String representation of the type
+     */
     private String processGenericType(ASTUtil.ASTNode typeNode) {
         if (typeNode == null) return "object";
 
         LOGGER.info("Processing type node: {}", typeNode.type);
 
-        // Get the generic_type node
+        // Check if this is a generic type (e.g., List[str]) or a simple type (e.g., int)
         ASTUtil.ASTNode genericNode = findChildByType(typeNode, "generic_type");
         if (genericNode != null) {
-            StringBuilder sb = new StringBuilder();
+            return processGenericTypeNode(genericNode);
+        } else {
+            return processSimpleType(typeNode);
+        }
+    }
 
-            // Get base type name (List, Dict, etc)
-            ASTUtil.ASTNode baseType = findChildByType(genericNode, "identifier");
-            if (baseType != null) {
-                sb.append(baseType.getText(sourceCode));
+    /**
+     * Process a generic type node and build its complete type representation.
+     * Example: For List[str], processes both the 'List' part and the '[str]' part.
+     *
+     * @param genericNode The AST node representing the generic type
+     * @return Complete string representation of the generic type
+     */
+    private String processGenericTypeNode(ASTUtil.ASTNode genericNode) {
+        StringBuilder sb = new StringBuilder();
+
+        // Process the base type (e.g., the 'List' in 'List[str]')
+        processBaseType(genericNode, sb);
+
+        // Process any type parameters (e.g., the 'str' in 'List[str]')
+        List<String> typeParams = collectTypeParameters(genericNode);
+        appendTypeParameters(sb, typeParams);
+
+        // Log debug information about the processed type
+        logGenericTypeInfo(genericNode, typeParams);
+
+        return sb.toString();
+    }
+
+    /**
+     * Process the base type of a generic type (e.g., the 'List' in 'List[str]').
+     * Appends the base type name to the provided StringBuilder.
+     *
+     * @param genericNode The generic type AST node
+     * @param sb StringBuilder to append the base type to
+     */
+    private void processBaseType(ASTUtil.ASTNode genericNode, StringBuilder sb) {
+        ASTUtil.ASTNode baseType = findChildByType(genericNode, "identifier");
+        if (baseType != null) {
+            sb.append(baseType.getText(sourceCode));
+        }
+    }
+
+    /**
+     * Collect and process all type parameters from a generic type.
+     * For example, in Dict[str, Any], collects both 'str' and 'Any'.
+     *
+     * @param genericNode The generic type AST node
+     * @return List of processed type parameter strings
+     */
+    private List<String> collectTypeParameters(ASTUtil.ASTNode genericNode) {
+        List<String> typeParams = new ArrayList<>();
+
+        for (ASTUtil.ASTNode child : genericNode.children) {
+            if (child.type.equals("type_parameter")) {
+                processTypeParameter(child, typeParams);
             }
+        }
 
-            // Find all type parameters
-            List<String> typeParams = new ArrayList<>();
-            for (ASTUtil.ASTNode child : genericNode.children) {
-                if (child.type.equals("type_parameter")) {
-                    LOGGER.info("Processing type parameter node, child count: {}", child.children.size());
+        return typeParams;
+    }
 
-                    // Collect all type nodes within this type_parameter
-                    for (ASTUtil.ASTNode paramChild : child.children) {
-                        if (paramChild.type.equals("type")) {
-                            // Check if inner type is another generic type
-                            ASTUtil.ASTNode innerGeneric = findChildByType(paramChild, "generic_type");
-                            if (innerGeneric != null) {
-                                // Recursively process nested generic type
-                                typeParams.add(processGenericType(paramChild));
-                            } else {
-                                // Simple type
-                                ASTUtil.ASTNode innerIdentifier = findChildByType(paramChild, "identifier");
-                                if (innerIdentifier != null) {
-                                    typeParams.add(innerIdentifier.getText(sourceCode));
-                                }
-                            }
-                        }
-                    }
+    /**
+     * Process a single type parameter node and add its type to the typeParams list.
+     * Handles both simple type parameters and nested generic types.
+     *
+     * @param paramNode The type parameter AST node
+     * @param typeParams List to add the processed type parameter to
+     */
+    private void processTypeParameter(ASTUtil.ASTNode paramNode, List<String> typeParams) {
+        LOGGER.info("Processing type parameter node, child count: {}", paramNode.children.size());
+
+        for (ASTUtil.ASTNode paramChild : paramNode.children) {
+            if (paramChild.type.equals("type")) {
+                String paramType = extractParameterType(paramChild);
+                if (paramType != null) {
+                    typeParams.add(paramType);
                 }
             }
-
-            // Add all type parameters in brackets
-            if (!typeParams.isEmpty()) {
-                sb.append("[");
-                sb.append(String.join(", ", typeParams));
-                sb.append("]");
-            }
-
-            // Debug output
-            LOGGER.info("Found generic type with base: " +
-                    (baseType != null ? baseType.getText(sourceCode) : "null"));
-            LOGGER.info("Type parameters found: {}", typeParams);
-
-            String result = sb.toString();
-            LOGGER.info("Generated type: {}", result);
-            return result;
-        } else {
-            // For simple types
-            ASTUtil.ASTNode identifier = findChildByType(typeNode, "identifier");
-            String result = identifier != null ? identifier.getText(sourceCode) : "object";
-            LOGGER.info("Simple type: {}", result);
-            return result;
         }
+    }
+
+    /**
+     * Extract the type from a parameter type node.
+     * Handles both simple types and nested generic types recursively.
+     *
+     * @param typeNode The type AST node
+     * @return String representation of the parameter type
+     */
+    private String extractParameterType(ASTUtil.ASTNode typeNode) {
+        // Handle nested generic types (e.g., List[List[str]])
+        ASTUtil.ASTNode innerGeneric = findChildByType(typeNode, "generic_type");
+        if (innerGeneric != null) {
+            return processGenericType(typeNode);  // Recursive call for nested generic types
+        }
+
+        // Handle simple types
+        ASTUtil.ASTNode innerIdentifier = findChildByType(typeNode, "identifier");
+        return innerIdentifier != null ? innerIdentifier.getText(sourceCode) : null;
+    }
+
+    /**
+     * Append type parameters to the generic type representation.
+     * Adds the square brackets and joins multiple type parameters with commas.
+     *
+     * @param sb StringBuilder to append to
+     * @param typeParams List of type parameter strings to append
+     */
+    private void appendTypeParameters(StringBuilder sb, List<String> typeParams) {
+        if (!typeParams.isEmpty()) {
+            sb.append("[");
+            sb.append(String.join(", ", typeParams));
+            sb.append("]");
+        }
+    }
+
+    /**
+     * Log debug information about the processed generic type.
+     * Includes the base type and all found type parameters.
+     *
+     * @param genericNode The generic type AST node
+     * @param typeParams List of processed type parameters
+     */
+    private void logGenericTypeInfo(ASTUtil.ASTNode genericNode, List<String> typeParams) {
+        ASTUtil.ASTNode baseType = findChildByType(genericNode, "identifier");
+        LOGGER.info("Found generic type with base: {}",
+                baseType != null ? baseType.getText(sourceCode) : "null");
+        LOGGER.info("Type parameters found: {}", typeParams);
+    }
+
+    /**
+     * Process a simple (non-generic) type node.
+     * Handles basic types like 'str', 'int', etc.
+     *
+     * @param typeNode The type AST node
+     * @return String representation of the simple type
+     */
+    private String processSimpleType(ASTUtil.ASTNode typeNode) {
+        ASTUtil.ASTNode identifier = findChildByType(typeNode, "identifier");
+        String result = identifier != null ? identifier.getText(sourceCode) : "object";
+        LOGGER.info("Simple type: {}", result);
+        return result;
     }
 
     private void processDecorators(List<ASTUtil.ASTNode> decorators, Object target) {

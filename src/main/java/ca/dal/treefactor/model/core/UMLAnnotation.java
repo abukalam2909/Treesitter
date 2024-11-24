@@ -78,46 +78,76 @@ public class UMLAnnotation {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
+        appendAnnotationStart(sb);
+        appendAnnotationContent(sb);
+        return sb.toString();
+    }
+
+    private void appendAnnotationStart(StringBuilder sb) {
         sb.append('@').append(name);
-
-        if (!values.isEmpty() || !nestedAnnotations.isEmpty()) {
+        if (hasContent()) {
             sb.append('(');
+        }
+    }
 
-            // Handle single value with default key
-            if (values.size() == 1 && values.containsKey("value")) {
-                sb.append(values.get("value"));
-            }
-            // Handle multiple values or non-default keys
-            else if (!values.isEmpty()) {
-                boolean first = true;
-                for (Map.Entry<String, String> entry : values.entrySet()) {
-                    if (!first) {
-                        sb.append(", ");
-                    }
-                    sb.append(entry.getKey()).append(" = ").append(entry.getValue());
-                    first = false;
-                }
-            }
+    private boolean hasContent() {
+        return !values.isEmpty() || !nestedAnnotations.isEmpty();
+    }
 
-            // Handle nested annotations
-            if (!nestedAnnotations.isEmpty()) {
-                if (!values.isEmpty()) {
-                    sb.append(", ");
-                }
-                boolean first = true;
-                for (UMLAnnotation nested : nestedAnnotations) {
-                    if (!first) {
-                        sb.append(", ");
-                    }
-                    sb.append(nested.toString());
-                    first = false;
-                }
-            }
-
-            sb.append(')');
+    private void appendAnnotationContent(StringBuilder sb) {
+        if (!hasContent()) {
+            return;
         }
 
-        return sb.toString();
+        appendValues(sb);
+        appendNestedAnnotations(sb);
+        sb.append(')');
+    }
+
+    private void appendValues(StringBuilder sb) {
+        if (values.isEmpty()) {
+            return;
+        }
+
+        if (isSimpleValueAnnotation()) {
+            sb.append(values.get("value"));
+        } else {
+            appendKeyValuePairs(sb);
+        }
+    }
+
+    private boolean isSimpleValueAnnotation() {
+        return values.size() == 1 && values.containsKey("value");
+    }
+
+    private void appendKeyValuePairs(StringBuilder sb) {
+        boolean first = true;
+        for (Map.Entry<String, String> entry : values.entrySet()) {
+            if (!first) {
+                sb.append(", ");
+            }
+            sb.append(entry.getKey()).append(" = ").append(entry.getValue());
+            first = false;
+        }
+    }
+
+    private void appendNestedAnnotations(StringBuilder sb) {
+        if (nestedAnnotations.isEmpty()) {
+            return;
+        }
+
+        if (!values.isEmpty()) {
+            sb.append(", ");
+        }
+
+        boolean first = true;
+        for (UMLAnnotation nested : nestedAnnotations) {
+            if (!first) {
+                sb.append(", ");
+            }
+            sb.append(nested.toString());
+            first = false;
+        }
     }
 
     @Override
