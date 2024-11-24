@@ -20,27 +20,27 @@ public class ASTUtilTest {
                 ASTUtil.ASTNode astRoot = ASTUtil.buildASTWithCursor(rootNode);
 
                 assertNotNull(astRoot);
-                assertEquals("module", astRoot.type);
-                assertEquals(1, astRoot.children.size());
+                assertEquals("module", astRoot.getType());
+                assertEquals(1, astRoot.getChildren().size());
 
-                ASTUtil.ASTNode statementNode = astRoot.children.get(0);
-                assertEquals("expression_statement", statementNode.type);
-                assertEquals(1, statementNode.children.size());
+                ASTUtil.ASTNode statementNode = astRoot.getChildren().get(0);
+                assertEquals("expression_statement", statementNode.getType());
+                assertEquals(1, statementNode.getChildren().size());
 
-                ASTUtil.ASTNode callNode = statementNode.children.get(0);
-                assertEquals("call", callNode.type);
-                assertEquals(2, callNode.children.size());
+                ASTUtil.ASTNode callNode = statementNode.getChildren().get(0);
+                assertEquals("call", callNode.getType());
+                assertEquals(2, callNode.getChildren().size());
 
-                ASTUtil.ASTNode functionNode = callNode.children.get(0);
-                assertEquals("identifier", functionNode.type);
+                ASTUtil.ASTNode functionNode = callNode.getChildren().get(0);
+                assertEquals("identifier", functionNode.getType());
                 assertEquals("print", functionNode.getText(code));
 
-                ASTUtil.ASTNode argumentListNode = callNode.children.get(1);
-                assertEquals("argument_list", argumentListNode.type);
-                assertEquals(1, argumentListNode.children.size());
+                ASTUtil.ASTNode argumentListNode = callNode.getChildren().get(1);
+                assertEquals("argument_list", argumentListNode.getType());
+                assertEquals(1, argumentListNode.getChildren().size());
 
-                ASTUtil.ASTNode stringNode = argumentListNode.children.get(0);
-                assertEquals("string", stringNode.type);
+                ASTUtil.ASTNode stringNode = argumentListNode.getChildren().get(0);
+                assertEquals("string", stringNode.getType());
                 assertEquals("\"Hello World!\"", stringNode.getText(code));
 
                 // Print the AST for visualization

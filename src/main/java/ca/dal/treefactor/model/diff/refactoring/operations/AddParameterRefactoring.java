@@ -1,4 +1,3 @@
-// operations/AddParameterRefactoring.java
 package ca.dal.treefactor.model.diff.refactoring.operations;
 
 import ca.dal.treefactor.model.core.*;

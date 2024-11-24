@@ -1,4 +1,3 @@
-// operations/RenameParameterRefactoring.java
 package ca.dal.treefactor.model.diff.refactoring.operations;
 
 import ca.dal.treefactor.model.core.*;
@@ -17,9 +16,11 @@ public class RenameParameterRefactoring extends Refactoring {
             UMLParameter renamedParameter,
             UMLOperation operation) {
 
-        super(RefactoringType.RENAME_PARAMETER,
+        super(
+                RefactoringType.RENAME_PARAMETER,
                 createDescription(originalParameter, renamedParameter, operation),
-                determineLanguage(operation));
+                determineLanguage(operation)
+        );
 
         this.originalParameter = originalParameter;
         this.renamedParameter = renamedParameter;
@@ -31,19 +32,14 @@ public class RenameParameterRefactoring extends Refactoring {
             UMLParameter renamedParameter,
             UMLOperation operation) {
 
-        StringBuilder desc = new StringBuilder();
-        desc.append("Parameter '").append(originalParameter.getName())
-                .append("' renamed to '").append(renamedParameter.getName())
-                .append("' in ");
+        String context = operation.getClassName() != null
+                ? String.format("method '%s.%s'", operation.getClassName(), operation.getName())
+                : String.format("function '%s'", operation.getName());
 
-        if (operation.getClassName() != null) {
-            desc.append("method '").append(operation.getClassName())
-                    .append(".").append(operation.getName()).append("'");
-        } else {
-            desc.append("function '").append(operation.getName()).append("'");
-        }
-
-        return desc.toString();
+        return String.format("Parameter '%s' renamed to '%s' in %s",
+                originalParameter.getName(),
+                renamedParameter.getName(),
+                context);
     }
 
     private static String determineLanguage(UMLOperation operation) {
@@ -115,10 +111,13 @@ public class RenameParameterRefactoring extends Refactoring {
                 this.operation.equals(other.operation);
     }
 
+    private static final int HASH_MULTIPLIER_1 = 31;
+    private static final int HASH_MULTIPLIER_2 = 17;
+
     @Override
     public int hashCode() {
-        return originalParameter.hashCode() * 31 +
-                renamedParameter.hashCode() * 17 +
+        return originalParameter.hashCode() * HASH_MULTIPLIER_1 +
+                renamedParameter.hashCode() * HASH_MULTIPLIER_2 +
                 operation.hashCode();
     }
 }

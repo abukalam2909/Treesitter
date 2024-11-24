@@ -31,18 +31,18 @@ public class CPPASTVisitor extends ASTVisitor {
 
     @Override
     public void visit(ASTUtil.ASTNode node) {
-        LOGGER.info("Visiting node type: {}", node.type);
+        LOGGER.info("Visiting node type: {}", node.getType());
 
-        if (node.type.equals("template_declaration")) {
+        if (node.getType().equals("template_declaration")) {
             // Process the function definition inside the template
             ASTUtil.ASTNode funcDef = findFirstNodeOfType(node, "function_definition");
             if (funcDef != null) {
                 processMethod(funcDef);
             }
         } else {
-            switch (node.type) {
+            switch (node.getType()) {
                 case "translation_unit":
-                    for (ASTUtil.ASTNode child : node.children) {
+                    for (ASTUtil.ASTNode child : node.getChildren()) {
                         visit(child);
                     }
                     break;
@@ -79,11 +79,11 @@ public class CPPASTVisitor extends ASTVisitor {
         }
 
         // Get the first child of default_value node
-        if (!defaultValueNode.children.isEmpty()) {
-            ASTUtil.ASTNode valueNode = defaultValueNode.children.get(0);
+        if (!defaultValueNode.getChildren().isEmpty()) {
+            ASTUtil.ASTNode valueNode = defaultValueNode.getChildren().get(0);
 
             // Direct text extraction based on node type
-            switch (valueNode.type) {
+            switch (valueNode.getType()) {
                 case "string_literal":
                     return valueNode.getText(sourceCode); // Returns the full text including quotes
                 case "number_literal":
@@ -102,7 +102,7 @@ public class CPPASTVisitor extends ASTVisitor {
     }
 
     private void processParameter(ASTUtil.ASTNode paramNode, UMLOperation operation) {
-        boolean isOptional = paramNode.type.equals("optional_parameter_declaration");
+        boolean isOptional = paramNode.getType().equals("optional_parameter_declaration");
 
         // Build the parameter
         StringBuilder typeStr = new StringBuilder();
@@ -135,8 +135,8 @@ public class CPPASTVisitor extends ASTVisitor {
         if (paramName != null) {
             LocationInfo location = LocationInfo.builder()
                     .filePath(filePath)
-                    .startPoint(paramNode.startPoint)
-                    .endPoint(paramNode.endPoint)
+                    .startPoint(paramNode.getStartPoint())
+                    .endPoint(paramNode.getEndPoint())
                     .type(CodeElementType.PARAMETER_DECLARATION)
                     .build();
 
@@ -209,10 +209,10 @@ public class CPPASTVisitor extends ASTVisitor {
 
 
     private void processAccessSpecifiers(ASTUtil.ASTNode node) {
-        for (ASTUtil.ASTNode child : node.children) {
-            LOGGER.info("Processing body node: {}", child.type);
+        for (ASTUtil.ASTNode child : node.getChildren()) {
+            LOGGER.info("Processing body node: {}", child.getType());
 
-            if (child.type.equals("access_specifier")) {
+            if (child.getType().equals("access_specifier")) {
                 String specifier = child.getText(sourceCode);
                 LOGGER.info("Found access specifier: {}", specifier);
                 switch (specifier.toLowerCase()) {
@@ -229,12 +229,12 @@ public class CPPASTVisitor extends ASTVisitor {
                 continue;
             }
 
-            if (child.type.equals("function_definition")) {
+            if (child.getType().equals("function_definition")) {
                 LOGGER.info("Processing method within class");
                 processMethod(child);
             }
 
-            if (child.type.equals("field_declaration")) {
+            if (child.getType().equals("field_declaration")) {
                 LOGGER.info("Processing field within class");
                 processField(child);
             }
@@ -254,8 +254,8 @@ public class CPPASTVisitor extends ASTVisitor {
 
         // Get direct child identifier of declarator (this will be the method name)
         String methodName = null;
-        for (ASTUtil.ASTNode child : declaratorNode.children) {
-            if (child.type.equals("identifier") || child.type.equals("field_identifier")) {
+        for (ASTUtil.ASTNode child : declaratorNode.getChildren()) {
+            if (child.getType().equals("identifier") || child.getType().equals("field_identifier")) {
                 methodName = child.getText(sourceCode);
                 break;
             }
@@ -270,8 +270,8 @@ public class CPPASTVisitor extends ASTVisitor {
 
         LocationInfo location = LocationInfo.builder()
                 .filePath(filePath)
-                .startPoint(node.startPoint)
-                .endPoint(node.endPoint)
+                .startPoint(node.getStartPoint())
+                .endPoint(node.getEndPoint())
                 .type(CodeElementType.METHOD_DECLARATION)
                 .build();
 
@@ -299,8 +299,8 @@ public class CPPASTVisitor extends ASTVisitor {
 
     private void processMethodModifiers(ASTUtil.ASTNode declaratorNode, UMLOperation.Builder builder) {
         // Check for const qualifier
-        for (ASTUtil.ASTNode child : declaratorNode.children) {
-            if (child.type.equals("type_qualifier") &&
+        for (ASTUtil.ASTNode child : declaratorNode.getChildren()) {
+            if (child.getType().equals("type_qualifier") &&
                     getNodeText(child).equals("const")) {
                 builder.setConst(true);
             }
@@ -340,9 +340,9 @@ public class CPPASTVisitor extends ASTVisitor {
         // Process parameters
         ASTUtil.ASTNode paramListNode = findFirstNodeOfType(declaratorNode, "parameter_list");
         if (paramListNode != null) {
-            for (ASTUtil.ASTNode paramNode : paramListNode.children) {
-                if (paramNode.type.equals("parameter_declaration") ||
-                        paramNode.type.equals("optional_parameter_declaration")) {
+            for (ASTUtil.ASTNode paramNode : paramListNode.getChildren()) {
+                if (paramNode.getType().equals("parameter_declaration") ||
+                        paramNode.getType().equals("optional_parameter_declaration")) {
                     processParameter(paramNode, operation);
                 }
             }
@@ -418,8 +418,8 @@ public class CPPASTVisitor extends ASTVisitor {
         // Create operation
         LocationInfo location = LocationInfo.builder()
                 .filePath(filePath)
-                .startPoint(node.startPoint)
-                .endPoint(node.endPoint)
+                .startPoint(node.getStartPoint())
+                .endPoint(node.getEndPoint())
                 .type(CodeElementType.METHOD_DECLARATION)
                 .build();
 
@@ -444,9 +444,9 @@ public class CPPASTVisitor extends ASTVisitor {
         // Process parameters
         ASTUtil.ASTNode paramListNode = findFirstNodeOfType(declaratorNode, "parameter_list");
         if (paramListNode != null) {
-            for (ASTUtil.ASTNode paramNode : paramListNode.children) {
-                if (paramNode.type.equals("parameter_declaration") ||
-                        paramNode.type.equals("optional_parameter_declaration")) {
+            for (ASTUtil.ASTNode paramNode : paramListNode.getChildren()) {
+                if (paramNode.getType().equals("parameter_declaration") ||
+                        paramNode.getType().equals("optional_parameter_declaration")) {
                     processParameter(paramNode, operation);
                 }
             }
@@ -479,7 +479,7 @@ public class CPPASTVisitor extends ASTVisitor {
                 StringBuilder args = new StringBuilder();
                 boolean first = true;
 
-                for (ASTUtil.ASTNode arg : argList.children) {
+                for (ASTUtil.ASTNode arg : argList.getChildren()) {
                     if (!first) args.append(", ");
                     first = false;
 
@@ -526,7 +526,7 @@ public class CPPASTVisitor extends ASTVisitor {
         if (paramList != null) {
             args.append("(");
             boolean first = true;
-            for (ASTUtil.ASTNode param : paramList.children) {
+            for (ASTUtil.ASTNode param : paramList.getChildren()) {
                 if (!first) args.append(", ");
                 first = false;
 
@@ -569,9 +569,9 @@ public class CPPASTVisitor extends ASTVisitor {
     }
 
     private void processTemplateArguments(ASTUtil.ASTNode argList, StringBuilder typeStr) {
-        for (int i = 0; i < argList.children.size(); i++) {
+        for (int i = 0; i < argList.getChildren().size(); i++) {
             if (i > 0) typeStr.append(", ");
-            ASTUtil.ASTNode arg = argList.children.get(i);
+            ASTUtil.ASTNode arg = argList.getChildren().get(i);
             ASTUtil.ASTNode typeDesc = findFirstNodeOfType(arg, "type_descriptor");
             if (typeDesc != null) {
                 processTemplateArgument(typeDesc, typeStr);
@@ -593,9 +593,9 @@ public class CPPASTVisitor extends ASTVisitor {
             ASTUtil.ASTNode paramList = findFirstNodeOfType(funcDecl, "parameter_list");
             if (paramList != null) {
                 typeStr.append("(");
-                for (int i = 0; i < paramList.children.size(); i++) {
+                for (int i = 0; i < paramList.getChildren().size(); i++) {
                     if (i > 0) typeStr.append(", ");
-                    processFunctionParameter(paramList.children.get(i), typeStr);
+                    processFunctionParameter(paramList.getChildren().get(i), typeStr);
                 }
                 typeStr.append(")");
             }
@@ -718,9 +718,9 @@ public class CPPASTVisitor extends ASTVisitor {
     }
 
     private void processFunctionTemplateArgs(ASTUtil.ASTNode argList, StringBuilder typeStr) {
-        for (int i = 0; i < argList.children.size(); i++) {
+        for (int i = 0; i < argList.getChildren().size(); i++) {
             if (i > 0) typeStr.append(", ");
-            ASTUtil.ASTNode arg = argList.children.get(i);
+            ASTUtil.ASTNode arg = argList.getChildren().get(i);
             ASTUtil.ASTNode typeDesc = findFirstNodeOfType(arg, "type_descriptor");
             if (typeDesc != null) {
                 processFunctionArgType(typeDesc, typeStr);
@@ -750,9 +750,9 @@ public class CPPASTVisitor extends ASTVisitor {
         ASTUtil.ASTNode paramList = findFirstNodeOfType(funcDec, "parameter_list");
         if (paramList != null) {
             typeStr.append("(");
-            for (int i = 0; i < paramList.children.size(); i++) {
+            for (int i = 0; i < paramList.getChildren().size(); i++) {
                 if (i > 0) typeStr.append(", ");
-                ASTUtil.ASTNode param = paramList.children.get(i);
+                ASTUtil.ASTNode param = paramList.getChildren().get(i);
                 processParameter(param, typeStr);
             }
             typeStr.append(")");
@@ -794,8 +794,8 @@ public class CPPASTVisitor extends ASTVisitor {
     private LocationInfo buildLocation(ASTUtil.ASTNode node) {
         return LocationInfo.builder()
                 .filePath(filePath)
-                .startPoint(node.startPoint)
-                .endPoint(node.endPoint)
+                .startPoint(node.getStartPoint())
+                .endPoint(node.getEndPoint())
                 .type(CodeElementType.PARAMETER_DECLARATION)
                 .build();
     }
@@ -805,9 +805,9 @@ public class CPPASTVisitor extends ASTVisitor {
         ASTUtil.ASTNode paramList = findFirstNodeOfType(typeDesc, "parameter_list");
         if (paramList != null) {
             funcType.append("(");
-            for (int i = 0; i < paramList.children.size(); i++) {
+            for (int i = 0; i < paramList.getChildren().size(); i++) {
                 if (i > 0) funcType.append(", ");
-                ASTUtil.ASTNode param = paramList.children.get(i);
+                ASTUtil.ASTNode param = paramList.getChildren().get(i);
 
                 // Handle const qualifier
                 ASTUtil.ASTNode constQual = findFirstNodeOfType(param, "type_qualifier");
@@ -833,14 +833,14 @@ public class CPPASTVisitor extends ASTVisitor {
     }
 
     private String extractDefaultValue(ASTUtil.ASTNode defaultValueNode) {
-        if (defaultValueNode == null || defaultValueNode.children.isEmpty()) {
+        if (defaultValueNode == null || defaultValueNode.getChildren().isEmpty()) {
             return null;
         }
 
-        ASTUtil.ASTNode valueNode = defaultValueNode.children.get(0);
-        if (valueNode.type.equals("string_literal")) {
+        ASTUtil.ASTNode valueNode = defaultValueNode.getChildren().get(0);
+        if (valueNode.getType().equals("string_literal")) {
             return valueNode.getText(sourceCode);
-        } else if (valueNode.type.equals("null")) {
+        } else if (valueNode.getType().equals("null")) {
             return "nullptr";
         }
         return valueNode.getText(sourceCode);
@@ -905,8 +905,8 @@ public class CPPASTVisitor extends ASTVisitor {
 
         LocationInfo locationInfo = LocationInfo.builder()
                 .filePath(filePath)
-                .startPoint(node.startPoint)
-                .endPoint(node.endPoint)
+                .startPoint(node.getStartPoint())
+                .endPoint(node.getEndPoint())
                 .type(CodeElementType.FIELD_DECLARATION)
                 .build();
 
@@ -994,7 +994,7 @@ public class CPPASTVisitor extends ASTVisitor {
         // Process namespace body
         ASTUtil.ASTNode body = findChildByType(node, "compound_statement");
         if (body != null) {
-            for (ASTUtil.ASTNode child : body.children) {
+            for (ASTUtil.ASTNode child : body.getChildren()) {
                 visit(child);
             }
         }
@@ -1038,8 +1038,8 @@ public class CPPASTVisitor extends ASTVisitor {
 
         LocationInfo locationInfo = new LocationInfo(
                 filePath,
-                node.startPoint,
-                node.endPoint,
+                node.getStartPoint(),
+                node.getEndPoint(),
                 CodeElementType.IMPORT_DECLARATION
         );
 
@@ -1066,9 +1066,9 @@ public class CPPASTVisitor extends ASTVisitor {
         ASTUtil.ASTNode paramList = findChildByType(node, "parameter_list");
         if (paramList == null) return;
 
-        for (ASTUtil.ASTNode param : paramList.children) {
-            if (!param.type.equals("parameter_declaration") &&
-                    !param.type.equals("optional_parameter_declaration")) {
+        for (ASTUtil.ASTNode param : paramList.getChildren()) {
+            if (!param.getType().equals("parameter_declaration") &&
+                    !param.getType().equals("optional_parameter_declaration")) {
                 continue;
             }
 
@@ -1082,15 +1082,15 @@ public class CPPASTVisitor extends ASTVisitor {
 
             LocationInfo paramLocation = new LocationInfo(
                     filePath,
-                    param.startPoint,
-                    param.endPoint,
+                    param.getStartPoint(),
+                    param.getEndPoint(),
                     CodeElementType.PARAMETER_DECLARATION
             );
 
             UMLParameter parameter = new UMLParameter(paramName, new UMLType(paramType), paramLocation);
 
             // Handle optional parameters
-            if (param.type.equals("optional_parameter_declaration")) {
+            if (param.getType().equals("optional_parameter_declaration")) {
                 ASTUtil.ASTNode defaultValueNode = findChildByType(param, "default_value");
                 String defaultValue = getDefaultValue(defaultValueNode);
                 if (defaultValue != null) {
@@ -1150,8 +1150,8 @@ public class CPPASTVisitor extends ASTVisitor {
             if (argList != null) {
                 type.append("<");
 
-                for (int i = 0; i < argList.children.size(); i++) {
-                    ASTUtil.ASTNode arg = argList.children.get(i);
+                for (int i = 0; i < argList.getChildren().size(); i++) {
+                    ASTUtil.ASTNode arg = argList.getChildren().get(i);
                     if (i > 0) type.append(", ");
 
                     // Get the actual type from type_descriptor
@@ -1186,7 +1186,7 @@ public class CPPASTVisitor extends ASTVisitor {
     }
 
     private String getTemplateArgType(ASTUtil.ASTNode arg) {
-        if (!arg.type.equals("type_descriptor")) return null;
+        if (!arg.getType().equals("type_descriptor")) return null;
 
         // Try primitive type first
         ASTUtil.ASTNode typeNode = findChildByType(arg, "primitive_type");
@@ -1210,8 +1210,8 @@ public class CPPASTVisitor extends ASTVisitor {
 
         LocationInfo location = LocationInfo.builder()
                 .filePath(filePath)
-                .startPoint(node.startPoint)
-                .endPoint(node.endPoint)
+                .startPoint(node.getStartPoint())
+                .endPoint(node.getEndPoint())
                 .type(CodeElementType.CLASS_DECLARATION)
                 .build();
 
@@ -1253,14 +1253,14 @@ public class CPPASTVisitor extends ASTVisitor {
         LOGGER.info("Processing base class clause: {}", baseClassClause.getText(sourceCode));
 
         // Process each base class
-        for (ASTUtil.ASTNode child : baseClassClause.children) {
-            if (child.type.equals("type_identifier")) {
+        for (ASTUtil.ASTNode child : baseClassClause.getChildren()) {
+            if (child.getType().equals("type_identifier")) {
                 String baseClassName = child.getText(sourceCode);
                 LOGGER.info("Found base class: {}", baseClassName);
                 currentClass.addSuperclass(baseClassName);
             }
             // Handle access specifier if present (public/protected/private inheritance)
-            if (child.type.equals("access_specifier")) {
+            if (child.getType().equals("access_specifier")) {
                 LOGGER.info("Found inheritance access specifier: {}", child.getText(sourceCode));
             }
         }

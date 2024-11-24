@@ -52,8 +52,8 @@ public abstract class ASTVisitor {
      */
     protected ASTNode findChildByType(ASTNode parent, String type) {
         if (parent == null) return null;
-        for (ASTNode child : parent.children) {
-            if (child.type.equals(type)) {
+        for (ASTNode child : parent.getChildren()) {
+            if (child.getType().equals(type)) {
                 return child;
             }
         }
@@ -64,9 +64,9 @@ public abstract class ASTVisitor {
         if (parent == null || fieldName == null) {
             return null;
         }
-        for (ASTNode child : parent.children) {
+        for (ASTNode child : parent.getChildren()) {
             // Defensive check for null field name
-            if (child != null && child.fieldName != null && child.fieldName.equals(fieldName)) {
+            if (child != null && child.getFieldName() != null && child.getFieldName().equals(fieldName)) {
                 return child;
             }
         }
@@ -79,8 +79,8 @@ public abstract class ASTVisitor {
     protected List<ASTNode> findChildrenByType(ASTNode parent, String type) {
         List<ASTNode> children = new ArrayList<>();
         if (parent == null) return children;
-        for (ASTNode child : parent.children) {
-            if (child.type.equals(type)) {
+        for (ASTNode child : parent.getChildren()) {
+            if (child.getType().equals(type)) {
                 children.add(child);
             }
         }
@@ -92,9 +92,9 @@ public abstract class ASTVisitor {
      */
     protected ASTNode findChildByTypes(ASTNode parent, String... types) {
         if (parent == null) return null;
-        for (ASTNode child : parent.children) {
+        for (ASTNode child : parent.getChildren()) {
             for (String type : types) {
-                if (child.type.equals(type)) {
+                if (child.getType().equals(type)) {
                     return child;
                 }
             }
@@ -106,7 +106,7 @@ public abstract class ASTVisitor {
      * Helper method to check if a node has a specific type
      */
     protected boolean hasType(ASTNode node, String type) {
-        return node != null && node.type.equals(type);
+        return node != null && node.getType().equals(type);
     }
 
     /**
@@ -124,12 +124,14 @@ public abstract class ASTVisitor {
         return getNodeText(child);
     }
 
-    // Helper method to find first node of a given type in the subtree
-    ASTNode findFirstNodeOfType(ASTNode root, String type) {
-        if (root.type.equals(type)) {
+    /**
+     * Helper method to find first node of a given type in the subtree
+     */
+    protected ASTNode findFirstNodeOfType(ASTNode root, String type) {
+        if (root.getType().equals(type)) {
             return root;
         }
-        for (ASTNode child : root.children) {
+        for (ASTNode child : root.getChildren()) {
             ASTNode result = findFirstNodeOfType(child, type);
             if (result != null) {
                 return result;
@@ -138,13 +140,15 @@ public abstract class ASTVisitor {
         return null;
     }
 
-    // Helper method to find all nodes of a given type in the subtree
-    private List<ASTNode> findNodesOfType(ASTNode root, String type) {
+    /**
+     * Helper method to find all nodes of a given type in the subtree
+     */
+    protected List<ASTNode> findNodesOfType(ASTNode root, String type) {
         List<ASTNode> results = new ArrayList<>();
-        if (root.type.equals(type)) {
+        if (root.getType().equals(type)) {
             results.add(root);
         }
-        for (ASTNode child : root.children) {
+        for (ASTNode child : root.getChildren()) {
             results.addAll(findNodesOfType(child, type));
         }
         return results;
