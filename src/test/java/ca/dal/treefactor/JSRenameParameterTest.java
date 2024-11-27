@@ -1,12 +1,9 @@
 package ca.dal.treefactor;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import static com.jayway.jsonpath.internal.path.PathCompiler.fail;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import ca.dal.treefactor.model.UMLModel;
@@ -15,287 +12,233 @@ import ca.dal.treefactor.model.diff.refactoring.Refactoring;
 import ca.dal.treefactor.model.diff.refactoring.operations.RenameParameterRefactoring;
 import ca.dal.treefactor.util.UMLModelReader;
 
-public class JSRenameParameterTest {
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-    @Test
-    public void testRenameParameterSimple() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = "function greet(n) { console.log(`Hello, ${n}!`); }";
-        fileContentsBefore.put("example.js", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+@DisplayName("JavaScript Parameter Rename Detection Tests")
+class JSRenameParameterTest {
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = "function greet(name) { console.log(`Hello, ${name}!`); }";
-        fileContentsAfter.put("example.js", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+    private UMLModel parentModel;
+    private UMLModel currentModel;
+    private List<Refactoring> refactorings;
 
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        assertEquals(1, refactorings.size());
-        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
-
-        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
-        assertEquals("n", rename.getOriginalParameter().getName());
-        assertEquals("name", rename.getRenamedParameter().getName());
+    @BeforeEach
+    void setup() {
+        parentModel = null;
+        currentModel = null;
+        refactorings = null;
     }
 
-    @Test
-    public void testRenameParameterWithDefaultValue() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-            function calculator(n = 1) {
-                return n + 5;
-            }
-            """;
-        fileContentsBefore.put("example.js", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+    private void createModelsFromCode(String beforeCode, String afterCode) {
+        Map<String, String> beforeContents = new HashMap<>();
+        beforeContents.put("example.js", beforeCode);
+        parentModel = new UMLModelReader(beforeContents).getUmlModel();
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-            function calculator(num = 1) {
-                return num + 5;
-            }
-            """;
-        fileContentsAfter.put("example.js", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+        Map<String, String> afterContents = new HashMap<>();
+        afterContents.put("example.js", afterCode);
+        currentModel = new UMLModelReader(afterContents).getUmlModel();
 
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        assertEquals(1, refactorings.size());
-        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
-
-        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
-        assertEquals("n", rename.getOriginalParameter().getName());
-        assertEquals("num", rename.getRenamedParameter().getName());
+        UMLModelDiff modelDiff = new UMLModelDiff(parentModel, currentModel);
+        refactorings = modelDiff.detectRefactorings();
     }
 
-    @Test
-    public void testRenameParameterArrowFunction() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = "const greet = (n) => console.log(`Hello, ${n}!`);";
-        fileContentsBefore.put("example.js", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+    private void assertSingleParameterRename(String expectedOriginal, String expectedRenamed) {
+        assertNotNull(refactorings, "Refactorings should not be null");
+        assertEquals(1, refactorings.size(), "Should detect exactly one refactoring");
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = "const greet = (name) => console.log(`Hello, ${name}!`);";
-        fileContentsAfter.put("example.js", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+        Refactoring refactoring = refactorings.get(0);
+        assertTrue(refactoring instanceof RenameParameterRefactoring,
+                "Refactoring should be parameter rename");
 
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        assertEquals(1, refactorings.size());
-        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
-
-        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
-        assertEquals("n", rename.getOriginalParameter().getName());
-        assertEquals("name", rename.getRenamedParameter().getName());
+        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactoring;
+        assertEquals(expectedOriginal, rename.getOriginalParameter().getName(),
+                "Original parameter name mismatch");
+        assertEquals(expectedRenamed, rename.getRenamedParameter().getName(),
+                "Renamed parameter name mismatch");
     }
 
-    @Test
-    public void testRenameParameterTwoParams() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-            function fullName(fname, lname) {
-                return fname + ' ' + lname;
-            }
-            """;
-        fileContentsBefore.put("example.js", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+    @Nested
+    @DisplayName("Simple Function Parameter Renames")
+    class SimpleFunctionTests {
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-            function fullName(firstName, lastName) {
-                return firstName + ' ' + lastName;
-            }
-            """;
-        fileContentsAfter.put("example.js", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
-
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        assertEquals(2, refactorings.size());
-        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
-        assertTrue(refactorings.get(1) instanceof RenameParameterRefactoring);
-
-        RenameParameterRefactoring rename1 = (RenameParameterRefactoring) refactorings.get(0);
-        assertEquals("fname", rename1.getOriginalParameter().getName());
-        assertEquals("firstName", rename1.getRenamedParameter().getName());
-
-        RenameParameterRefactoring rename2 = (RenameParameterRefactoring) refactorings.get(1);
-        assertEquals("lname", rename2.getOriginalParameter().getName());
-        assertEquals("lastName", rename2.getRenamedParameter().getName());
-    }
-
-    @Test
-    public void testRenameParameterThreeFunctions() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-            function fullName(fname, lname) {
-                return fname + ' ' + lname;
-            }
-            
-            function greet(p) {
-                console.log(`Hello ${p}`);
-            }
-            
-            const calculate = (n) => n * 2;
-            """;
-        fileContentsBefore.put("example.js", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
-
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-            function fullName(firstName, lastName) {
-                return firstName + ' ' + lastName;
-            }
-            
-            function greet(person) {
-                console.log(`Hello ${person}`);
-            }
-            
-            const calculate = (num) => num * 2;
-            """;
-        fileContentsAfter.put("example.js", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
-
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        // Verify we found the correct number of refactorings
-        assertEquals(4, refactorings.size(), "Should detect four parameter renames");
-
-        // Check that we find all expected renames regardless of order
-        boolean foundFname = false;
-        boolean foundLname = false;
-        boolean foundP = false;
-        boolean foundN = false;
-
-        for (Refactoring ref : refactorings) {
-            assertTrue(ref instanceof RenameParameterRefactoring, "Should be a parameter rename refactoring");
-            RenameParameterRefactoring rename = (RenameParameterRefactoring) ref;
-
-            switch (rename.getOriginalParameter().getName()) {
-                case "fname":
-                    assertEquals("firstName", rename.getRenamedParameter().getName(), "fname should be renamed to firstName");
-                    foundFname = true;
-                    break;
-                case "lname":
-                    assertEquals("lastName", rename.getRenamedParameter().getName(), "lname should be renamed to lastName");
-                    foundLname = true;
-                    break;
-                case "p":
-                    assertEquals("person", rename.getRenamedParameter().getName(), "p should be renamed to person");
-                    foundP = true;
-                    break;
-                case "n":
-                    assertEquals("num", rename.getRenamedParameter().getName(), "n should be renamed to num");
-                    foundN = true;
-                    break;
-                default:
-                    fail("Unexpected parameter rename found: " + rename.getOriginalParameter().getName() +
-                            " -> " + rename.getRenamedParameter().getName());
-            }
+        @Test
+        @DisplayName("Basic function parameter rename")
+        void testSimpleRename() {
+            createModelsFromCode(
+                    "function greet(n) { console.log(`Hello, ${n}!`); }",
+                    "function greet(name) { console.log(`Hello, ${name}!`); }"
+            );
+            assertSingleParameterRename("n", "name");
         }
 
-        // Verify we found all expected renames
-        assertTrue(foundFname, "Should find fname -> firstName rename");
-        assertTrue(foundLname, "Should find lname -> lastName rename");
-        assertTrue(foundP, "Should find p -> person rename");
-        assertTrue(foundN, "Should find n -> num rename");
+        @Test
+        @DisplayName("Parameter rename with default value")
+        void testRenameWithDefault() {
+            createModelsFromCode(
+                    """
+                    function calculator(n = 1) {
+                        return n + 5;
+                    }
+                    """,
+                    """
+                    function calculator(num = 1) {
+                        return num + 5;
+                    }
+                    """
+            );
+            assertSingleParameterRename("n", "num");
+        }
+
+        @Test
+        @DisplayName("Arrow function parameter rename")
+        void testArrowFunctionRename() {
+            createModelsFromCode(
+                    "const greet = (n) => console.log(`Hello, ${n}!`);",
+                    "const greet = (name) => console.log(`Hello, ${name}!`);"
+            );
+            assertSingleParameterRename("n", "name");
+        }
     }
 
-    @Test
-    public void testRenameParameterInsideClass() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-            class Square {
-                calculatePerimeter(side_length) {
-                    return 4 * side_length;
-                }
+    @Nested
+    @DisplayName("Multiple Parameter Tests")
+    class MultipleParameterTests {
+
+        @Test
+        @DisplayName("Rename two parameters in function")
+        void testTwoParameterRename() {
+            createModelsFromCode(
+                    """
+                    function fullName(fname, lname) {
+                        return fname + ' ' + lname;
+                    }
+                    """,
+                    """
+                    function fullName(firstName, lastName) {
+                        return firstName + ' ' + lastName;
+                    }
+                    """
+            );
+
+            assertEquals(2, refactorings.size(), "Should detect two parameter renames");
+
+            RenameParameterRefactoring rename1 = (RenameParameterRefactoring) refactorings.get(0);
+            assertEquals("fname", rename1.getOriginalParameter().getName(),
+                    "First parameter original name mismatch");
+            assertEquals("firstName", rename1.getRenamedParameter().getName(),
+                    "First parameter new name mismatch");
+
+            RenameParameterRefactoring rename2 = (RenameParameterRefactoring) refactorings.get(1);
+            assertEquals("lname", rename2.getOriginalParameter().getName(),
+                    "Second parameter original name mismatch");
+            assertEquals("lastName", rename2.getRenamedParameter().getName(),
+                    "Second parameter new name mismatch");
+        }
+
+        @Test
+        @DisplayName("Multiple function parameter renames")
+        void testMultipleFunctionRenames() {
+            createModelsFromCode(
+                    """
+                    function fullName(fname, lname) {
+                        return fname + ' ' + lname;
+                    }
+                    
+                    function greet(p) {
+                        console.log(`Hello ${p}`);
+                    }
+                    
+                    const calculate = (n) => n * 2;
+                    """,
+                    """
+                    function fullName(firstName, lastName) {
+                        return firstName + ' ' + lastName;
+                    }
+                    
+                    function greet(person) {
+                        console.log(`Hello ${person}`);
+                    }
+                    
+                    const calculate = (num) => num * 2;
+                    """
+            );
+
+            assertEquals(4, refactorings.size(), "Should detect four parameter renames");
+
+            Map<String, String> expectedRenames = new HashMap<>();
+            expectedRenames.put("fname", "firstName");
+            expectedRenames.put("lname", "lastName");
+            expectedRenames.put("p", "person");
+            expectedRenames.put("n", "num");
+
+            for (Refactoring ref : refactorings) {
+                assertTrue(ref instanceof RenameParameterRefactoring,
+                        "Each refactoring should be a parameter rename");
+
+                RenameParameterRefactoring rename = (RenameParameterRefactoring) ref;
+                String originalName = rename.getOriginalParameter().getName();
+                String expectedNewName = expectedRenames.get(originalName);
+
+                assertNotNull(expectedNewName,
+                        "Unexpected original parameter name: " + originalName);
+                assertEquals(expectedNewName, rename.getRenamedParameter().getName(),
+                        "Incorrect rename for parameter: " + originalName);
+
+                expectedRenames.remove(originalName);
             }
-            """;
-        fileContentsBefore.put("example.js", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-            class Square {
-                calculatePerimeter(s) {
-                    return 4 * s;
-                }
-            }
-            """;
-        fileContentsAfter.put("example.js", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
-
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        assertEquals(1, refactorings.size(), "Should detect exactly one parameter rename");
-        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring,
-                "Should be a parameter rename refactoring");
-
-        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
-        assertEquals("side_length", rename.getOriginalParameter().getName(),
-                "Original parameter should be 'side_length'");
-        assertEquals("s", rename.getRenamedParameter().getName(),
-                "Renamed parameter should be 's'");
+            assertTrue(expectedRenames.isEmpty(),
+                    "Not all expected renames were found: " + expectedRenames.keySet());
+        }
     }
 
-    @Test
-    public void testRenameParameterInConstructor() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-            class Person {
-                constructor(n) {
-                    this.name = n;
-                }
-            }
-            """;
-        fileContentsBefore.put("example.js", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+    @Nested
+    @DisplayName("Class-related Parameter Tests")
+    class ClassParameterTests {
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-            class Person {
-                constructor(name) {
-                    this.name = name;
-                }
-            }
-            """;
-        fileContentsAfter.put("example.js", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+        @Test
+        @DisplayName("Rename parameter in class method")
+        void testClassMethodRename() {
+            createModelsFromCode(
+                    """
+                    class Square {
+                        calculatePerimeter(side_length) {
+                            return 4 * side_length;
+                        }
+                    }
+                    """,
+                    """
+                    class Square {
+                        calculatePerimeter(s) {
+                            return 4 * s;
+                        }
+                    }
+                    """
+            );
+            assertSingleParameterRename("side_length", "s");
+        }
 
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        assertEquals(1, refactorings.size(), "Should detect exactly one parameter rename");
-        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring,
-                "Should be a parameter rename refactoring");
-
-        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
-        assertEquals("n", rename.getOriginalParameter().getName());
-        assertEquals("name", rename.getRenamedParameter().getName());
+        @Test
+        @DisplayName("Rename parameter in class constructor")
+        void testConstructorRename() {
+            createModelsFromCode(
+                    """
+                    class Person {
+                        constructor(n) {
+                            this.name = n;
+                        }
+                    }
+                    """,
+                    """
+                    class Person {
+                        constructor(name) {
+                            this.name = name;
+                        }
+                    }
+                    """
+            );
+            assertSingleParameterRename("n", "name");
+        }
     }
-
-
-
 }

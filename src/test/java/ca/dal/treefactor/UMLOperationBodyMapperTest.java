@@ -18,7 +18,7 @@ class UMLOperationBodyMapperTest {
     private static final String TEST_FILE = "test.py";
 
     @Test
-    void testExactStatementMatch() {
+    void identicalStatementsShouldHavePerfectSimilarityScore() {
         UMLOperation op1 = createOperationWithBody(
                 "print('hello')\nx = 5",
                 new Point(1, 0), new Point(2, 5)
@@ -33,53 +33,102 @@ class UMLOperationBodyMapperTest {
                 "Identical statements should have perfect similarity score");
     }
 
-    @Test
-    void testParameterRenameInStatements() {
-        UMLOperation op1 = createOperationWithBody(
-                "print(f'Hello, {name}!')",
-                new Point(1, 0), new Point(1, 23)
-        );
-        op1.addParameter(createParameter("name", op1));
+    @Nested
+    class ParameterRenameTests {
+        @Test
+        void shouldDetectSingleParameterRename() {
+            UMLOperation op1 = createOperationWithBody(
+                    "print(f'Hello, {name}!')",
+                    new Point(1, 0), new Point(1, 23)
+            );
+            op1.addParameter(createParameter("name", op1));
 
-        UMLOperation op2 = createOperationWithBody(
-                "print(f'Hello, {person}!')",
-                new Point(1, 0), new Point(1, 25)
-        );
-        op2.addParameter(createParameter("person", op2));
+            UMLOperation op2 = createOperationWithBody(
+                    "print(f'Hello, {person}!')",
+                    new Point(1, 0), new Point(1, 25)
+            );
+            op2.addParameter(createParameter("person", op2));
 
-        UMLOperationBodyMapper mapper = new UMLOperationBodyMapper(op1, op2);
-        List<Refactoring> refactorings = mapper.getRefactorings();
+            UMLOperationBodyMapper mapper = new UMLOperationBodyMapper(op1, op2);
+            List<Refactoring> refactorings = mapper.getRefactorings();
 
-        assertEquals(1, refactorings.size(), "Should detect one parameter rename");
-        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
-        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
-        assertEquals("name", rename.getOriginalParameter().getName());
-        assertEquals("person", rename.getRenamedParameter().getName());
+            assertEquals(1, refactorings.size(),
+                    "Should detect exactly one refactoring");
+        }
+
+        @Test
+        void shouldCorrectlyIdentifyOriginalAndRenamedParameters() {
+            UMLOperation op1 = createOperationWithBody(
+                    "print(f'Hello, {name}!')",
+                    new Point(1, 0), new Point(1, 23)
+            );
+            op1.addParameter(createParameter("name", op1));
+
+            UMLOperation op2 = createOperationWithBody(
+                    "print(f'Hello, {person}!')",
+                    new Point(1, 0), new Point(1, 25)
+            );
+            op2.addParameter(createParameter("person", op2));
+
+            UMLOperationBodyMapper mapper = new UMLOperationBodyMapper(op1, op2);
+            RenameParameterRefactoring rename = (RenameParameterRefactoring) mapper.getRefactorings().get(0);
+
+            assertEquals("name", rename.getOriginalParameter().getName(),
+                    "Original parameter should be 'name'");
+            assertEquals("person", rename.getRenamedParameter().getName(),
+                    "Renamed parameter should be 'person'");
+        }
     }
 
-    @Test
-    void testPythonSelfParameterHandling() {
-        UMLOperation op1 = createOperationWithBody(
-                "self.value = x",
-                new Point(1, 0), new Point(1, 14)
-        );
-        op1.addParameter(createParameter("self", op1));
-        op1.addParameter(createParameter("x", op1));
+    @Nested
+    class PythonSelfParameterTests {
+        @Test
+        void shouldDetectSingleParameterRenameIgnoringSelf() {
+            UMLOperation op1 = createOperationWithBody(
+                    "self.value = x",
+                    new Point(1, 0), new Point(1, 14)
+            );
+            op1.addParameter(createParameter("self", op1));
+            op1.addParameter(createParameter("x", op1));
 
-        UMLOperation op2 = createOperationWithBody(
-                "self.value = val",
-                new Point(1, 0), new Point(1, 16)
-        );
-        op2.addParameter(createParameter("self", op2));
-        op2.addParameter(createParameter("val", op2));
+            UMLOperation op2 = createOperationWithBody(
+                    "self.value = val",
+                    new Point(1, 0), new Point(1, 16)
+            );
+            op2.addParameter(createParameter("self", op2));
+            op2.addParameter(createParameter("val", op2));
 
-        UMLOperationBodyMapper mapper = new UMLOperationBodyMapper(op1, op2);
-        List<Refactoring> refactorings = mapper.getRefactorings();
+            UMLOperationBodyMapper mapper = new UMLOperationBodyMapper(op1, op2);
+            List<Refactoring> refactorings = mapper.getRefactorings();
 
-        assertEquals(1, refactorings.size(), "Should detect parameter rename ignoring self");
-        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
-        assertEquals("x", rename.getOriginalParameter().getName());
-        assertEquals("val", rename.getRenamedParameter().getName());
+            assertEquals(1, refactorings.size(),
+                    "Should detect exactly one refactoring when ignoring self parameter");
+        }
+
+        @Test
+        void shouldCorrectlyIdentifyParameterRenameIgnoringSelf() {
+            UMLOperation op1 = createOperationWithBody(
+                    "self.value = x",
+                    new Point(1, 0), new Point(1, 14)
+            );
+            op1.addParameter(createParameter("self", op1));
+            op1.addParameter(createParameter("x", op1));
+
+            UMLOperation op2 = createOperationWithBody(
+                    "self.value = val",
+                    new Point(1, 0), new Point(1, 16)
+            );
+            op2.addParameter(createParameter("self", op2));
+            op2.addParameter(createParameter("val", op2));
+
+            UMLOperationBodyMapper mapper = new UMLOperationBodyMapper(op1, op2);
+            RenameParameterRefactoring rename = (RenameParameterRefactoring) mapper.getRefactorings().get(0);
+
+            assertEquals("x", rename.getOriginalParameter().getName(),
+                    "Original parameter should be 'x'");
+            assertEquals("val", rename.getRenamedParameter().getName(),
+                    "Renamed parameter should be 'val'");
+        }
     }
 
     private UMLOperation createOperationWithBody(String body, Point start, Point end) {
