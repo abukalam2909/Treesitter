@@ -54,14 +54,14 @@
 			<artifactId>jtreesitter</artifactId>
 			<version>0.23.2</version>
 		</dependency>
-
+<!--
 		<dependency>
 			<groupId>org.testng</groupId>
 			<artifactId>testng</artifactId>
 			<version>RELEASE</version>
 			<scope>compile</scope>
 		</dependency>
-
+-->
 		<dependency>
 			<groupId>ch.qos.logback</groupId>
 			<artifactId>logback-classic</artifactId>
