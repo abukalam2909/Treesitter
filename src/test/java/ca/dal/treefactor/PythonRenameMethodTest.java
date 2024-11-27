@@ -42,28 +42,52 @@ public class PythonRenameMethodTest {
         refactorings = modelDiff.detectRefactorings();
     }
 
-    @Test
-    @DisplayName("Simple function rename")
-    void testSimpleFunctionRename() {
-        createModelsFromCode(
-                """
+    @Nested
+    @DisplayName("Function Rename Tests")
+    class FunctionRenameTests {
+        private final String BEFORE_CODE = """
                 def calc_sum(x: int, y: int) -> int:
                     return x + y
-                """,
-                """
+                """;
+
+        private final String AFTER_CODE = """
                 def calculate_sum(x: int, y: int) -> int:
                     return x + y
-                """
-        );
+                """;
 
-        assertEquals(1, refactorings.size(), "Should detect exactly one refactoring");
-        assertTrue(refactorings.get(0) instanceof RenameMethodRefactoring,
-                "Should be a rename method refactoring");
+        @BeforeEach
+        void setup() {
+            createModelsFromCode(BEFORE_CODE, AFTER_CODE);
+        }
 
-        RenameMethodRefactoring rename = (RenameMethodRefactoring) refactorings.get(0);
-        assertEquals("calc_sum", rename.getOriginalOperation().getName(),
-                "Original method name should be 'calc_sum'");
-        assertEquals("calculate_sum", rename.getRenamedOperation().getName(),
-                "New method name should be 'calculate_sum'");
+        @Test
+        @DisplayName("Should detect single refactoring")
+        void testRefactoringCount() {
+            assertEquals(1, refactorings.size(),
+                    "Should detect exactly one refactoring");
+        }
+
+        @Test
+        @DisplayName("Should detect correct refactoring type")
+        void testRefactoringType() {
+            assertTrue(refactorings.get(0) instanceof RenameMethodRefactoring,
+                    "Should be a rename method refactoring");
+        }
+
+        @Test
+        @DisplayName("Should have correct original method name")
+        void testOriginalMethodName() {
+            RenameMethodRefactoring rename = (RenameMethodRefactoring) refactorings.get(0);
+            assertEquals("calc_sum", rename.getOriginalOperation().getName(),
+                    "Original method name should be 'calc_sum'");
+        }
+
+        @Test
+        @DisplayName("Should have correct renamed method name")
+        void testRenamedMethodName() {
+            RenameMethodRefactoring rename = (RenameMethodRefactoring) refactorings.get(0);
+            assertEquals("calculate_sum", rename.getRenamedOperation().getName(),
+                    "New method name should be 'calculate_sum'");
+        }
     }
 }

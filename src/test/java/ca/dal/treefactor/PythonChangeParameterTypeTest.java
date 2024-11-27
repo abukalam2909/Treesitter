@@ -42,113 +42,201 @@ public class PythonChangeParameterTypeTest {
         refactorings = modelDiff.detectRefactorings();
     }
 
-    @Test
-    @DisplayName("Simple parameter type change")
-    void testSimpleParameterTypeChange() {
-        createModelsFromCode(
-                """
-                def process_value(x: int) -> str:
-                    return str(x)
-                """,
-                """
-                def process_value(x: float) -> str:
-                    return str(x)
-                """
-        );
+    @Nested
+    @DisplayName("Simple Parameter Type Change Tests")
+    class SimpleParameterTypeChangeTests {
+        @BeforeEach
+        void setup() {
+            createModelsFromCode(
+                    """
+                    def process_value(x: int) -> str:
+                        return str(x)
+                    """,
+                    """
+                    def process_value(x: float) -> str:
+                        return str(x)
+                    """
+            );
+        }
 
-        assertEquals(1, refactorings.size(), "Should detect exactly one refactoring");
-        assertTrue(refactorings.get(0) instanceof ChangeParameterTypeRefactoring,
-                "Should be a parameter type change refactoring");
+        @Test
+        @DisplayName("Should detect single refactoring")
+        void testRefactoringCount() {
+            assertEquals(1, refactorings.size(),
+                    "Should detect exactly one refactoring");
+        }
 
-        ChangeParameterTypeRefactoring typeChange = (ChangeParameterTypeRefactoring) refactorings.get(0);
-        assertEquals("int", typeChange.getOriginalParameter().getType().getTypeName(),
-                "Original parameter type should be 'int'");
-        assertEquals("float", typeChange.getChangedParameter().getType().getTypeName(),
-                "New parameter type should be 'float'");
+        @Test
+        @DisplayName("Should detect correct refactoring type")
+        void testRefactoringType() {
+            assertTrue(refactorings.get(0) instanceof ChangeParameterTypeRefactoring,
+                    "Should be a parameter type change refactoring");
+        }
+
+        @Test
+        @DisplayName("Should have correct original parameter type")
+        void testOriginalParameterType() {
+            ChangeParameterTypeRefactoring typeChange = (ChangeParameterTypeRefactoring) refactorings.get(0);
+            assertEquals("int", typeChange.getOriginalParameter().getType().getTypeName(),
+                    "Original parameter type should be 'int'");
+        }
+
+        @Test
+        @DisplayName("Should have correct changed parameter type")
+        void testChangedParameterType() {
+            ChangeParameterTypeRefactoring typeChange = (ChangeParameterTypeRefactoring) refactorings.get(0);
+            assertEquals("float", typeChange.getChangedParameter().getType().getTypeName(),
+                    "New parameter type should be 'float'");
+        }
     }
 
-    @Test
-    @DisplayName("Complex parameter type change")
-    void testComplexParameterTypeChange() {
-        createModelsFromCode(
-                """
-                def process_list(items: List[int]) -> int:
-                    return sum(items)
-                """,
-                """
-                def process_list(items: List[float]) -> int:
-                    return int(sum(items))
-                """
-        );
+    @Nested
+    @DisplayName("Complex Parameter Type Change Tests")
+    class ComplexParameterTypeChangeTests {
+        @BeforeEach
+        void setup() {
+            createModelsFromCode(
+                    """
+                    def process_list(items: List[int]) -> int:
+                        return sum(items)
+                    """,
+                    """
+                    def process_list(items: List[float]) -> int:
+                        return int(sum(items))
+                    """
+            );
+        }
 
-        assertEquals(1, refactorings.size(), "Should detect exactly one refactoring");
-        assertTrue(refactorings.get(0) instanceof ChangeParameterTypeRefactoring,
-                "Should be a parameter type change refactoring");
+        @Test
+        @DisplayName("Should detect single complex type refactoring")
+        void testRefactoringCount() {
+            assertEquals(1, refactorings.size(),
+                    "Should detect exactly one refactoring");
+        }
 
-        ChangeParameterTypeRefactoring typeChange = (ChangeParameterTypeRefactoring) refactorings.get(0);
-        assertEquals("List[int]", typeChange.getOriginalParameter().getType().getTypeName(),
-                "Original parameter type should be 'List[int]'");
-        assertEquals("List[float]", typeChange.getChangedParameter().getType().getTypeName(),
-                "New parameter type should be 'List[float]'");
+        @Test
+        @DisplayName("Should detect correct complex refactoring type")
+        void testRefactoringType() {
+            assertTrue(refactorings.get(0) instanceof ChangeParameterTypeRefactoring,
+                    "Should be a parameter type change refactoring");
+        }
+
+        @Test
+        @DisplayName("Should have correct original complex parameter type")
+        void testOriginalParameterType() {
+            ChangeParameterTypeRefactoring typeChange = (ChangeParameterTypeRefactoring) refactorings.get(0);
+            assertEquals("List[int]", typeChange.getOriginalParameter().getType().getTypeName(),
+                    "Original parameter type should be 'List[int]'");
+        }
+
+        @Test
+        @DisplayName("Should have correct changed complex parameter type")
+        void testChangedParameterType() {
+            ChangeParameterTypeRefactoring typeChange = (ChangeParameterTypeRefactoring) refactorings.get(0);
+            assertEquals("List[float]", typeChange.getChangedParameter().getType().getTypeName(),
+                    "New parameter type should be 'List[float]'");
+        }
     }
 
-    @Test
-    @DisplayName("Multiple parameter type changes")
-    void testMultipleParameterTypeChanges() {
-        createModelsFromCode(
-                """
-                def calculate(x: int, y: int) -> float:
-                    return x + y
-                """,
-                """
-                def calculate(x: float, y: float) -> float:
-                    return x + y
-                """
-        );
+    @Nested
+    @DisplayName("Multiple Parameter Type Change Tests")
+    class MultipleParameterTypeChangeTests {
+        @BeforeEach
+        void setup() {
+            createModelsFromCode(
+                    """
+                    def calculate(x: int, y: int) -> float:
+                        return x + y
+                    """,
+                    """
+                    def calculate(x: float, y: float) -> float:
+                        return x + y
+                    """
+            );
+        }
 
-        assertEquals(2, refactorings.size(), "Should detect two refactorings");
-        assertTrue(refactorings.stream().allMatch(r -> r instanceof ChangeParameterTypeRefactoring),
-                "All refactorings should be parameter type changes");
+        @Test
+        @DisplayName("Should detect two refactorings")
+        void testRefactoringCount() {
+            assertEquals(2, refactorings.size(),
+                    "Should detect two refactorings");
+        }
 
-        // Verify first parameter change
-        ChangeParameterTypeRefactoring firstChange = (ChangeParameterTypeRefactoring) refactorings.get(0);
-        assertEquals("int", firstChange.getOriginalParameter().getType().getTypeName(),
-                "First parameter's original type should be 'int'");
-        assertEquals("float", firstChange.getChangedParameter().getType().getTypeName(),
-                "First parameter's new type should be 'float'");
+        @Test
+        @DisplayName("Should detect correct refactoring types")
+        void testRefactoringTypes() {
+            assertTrue(refactorings.stream().allMatch(r -> r instanceof ChangeParameterTypeRefactoring),
+                    "All refactorings should be parameter type changes");
+        }
 
-        // Verify second parameter change
-        ChangeParameterTypeRefactoring secondChange = (ChangeParameterTypeRefactoring) refactorings.get(1);
-        assertEquals("int", secondChange.getOriginalParameter().getType().getTypeName(),
-                "Second parameter's original type should be 'int'");
-        assertEquals("float", secondChange.getChangedParameter().getType().getTypeName(),
-                "Second parameter's new type should be 'float'");
+        @Test
+        @DisplayName("First parameter should have correct types")
+        void testFirstParameterTypes() {
+            ChangeParameterTypeRefactoring firstChange = (ChangeParameterTypeRefactoring) refactorings.get(0);
+            assertEquals("int", firstChange.getOriginalParameter().getType().getTypeName(),
+                    "First parameter's original type should be 'int'");
+            assertEquals("float", firstChange.getChangedParameter().getType().getTypeName(),
+                    "First parameter's new type should be 'float'");
+        }
+
+        @Test
+        @DisplayName("Second parameter should have correct types")
+        void testSecondParameterTypes() {
+            ChangeParameterTypeRefactoring secondChange = (ChangeParameterTypeRefactoring) refactorings.get(1);
+            assertEquals("int", secondChange.getOriginalParameter().getType().getTypeName(),
+                    "Second parameter's original type should be 'int'");
+            assertEquals("float", secondChange.getChangedParameter().getType().getTypeName(),
+                    "Second parameter's new type should be 'float'");
+        }
     }
 
-    @Test
-    @DisplayName("Class method parameter type change")
-    void testClassMethodParameterTypeChange() {
-        createModelsFromCode(
-                """
-                class DataProcessor:
-                    def process_value(self, data: Dict[str, int]) -> List[int]:
-                        return list(data.values())
-                """,
-                """
-                class DataProcessor:
-                    def process_value(self, data: Dict[str, float]) -> List[float]:
-                        return list(data.values())
-                """
-        );
+    @Nested
+    @DisplayName("Class Method Parameter Type Change Tests")
+    class ClassMethodParameterTypeChangeTests {
+        @BeforeEach
+        void setup() {
+            createModelsFromCode(
+                    """
+                    class DataProcessor:
+                        def process_value(self, data: Dict[str, int]) -> List[int]:
+                            return list(data.values())
+                    """,
+                    """
+                    class DataProcessor:
+                        def process_value(self, data: Dict[str, float]) -> List[float]:
+                            return list(data.values())
+                    """
+            );
+        }
 
-        assertEquals(1, refactorings.size(), "Should detect exactly one refactoring");
-        assertTrue(refactorings.get(0) instanceof ChangeParameterTypeRefactoring,
-                "Should be a parameter type change refactoring");
+        @Test
+        @DisplayName("Should detect single class method refactoring")
+        void testRefactoringCount() {
+            assertEquals(1, refactorings.size(),
+                    "Should detect exactly one refactoring");
+        }
 
-        ChangeParameterTypeRefactoring typeChange = (ChangeParameterTypeRefactoring) refactorings.get(0);
-        assertEquals("Dict[str, int]", typeChange.getOriginalParameter().getType().getTypeName(),
-                "Original parameter type should be 'Dict[str, int]'");
-        assertEquals("Dict[str, float]", typeChange.getChangedParameter().getType().getTypeName(),
-                "New parameter type should be 'Dict[str, float]'");
+        @Test
+        @DisplayName("Should detect correct class method refactoring type")
+        void testRefactoringType() {
+            assertTrue(refactorings.get(0) instanceof ChangeParameterTypeRefactoring,
+                    "Should be a parameter type change refactoring");
+        }
+
+        @Test
+        @DisplayName("Should have correct original class method parameter type")
+        void testOriginalParameterType() {
+            ChangeParameterTypeRefactoring typeChange = (ChangeParameterTypeRefactoring) refactorings.get(0);
+            assertEquals("Dict[str, int]", typeChange.getOriginalParameter().getType().getTypeName(),
+                    "Original parameter type should be 'Dict[str, int]'");
+        }
+
+        @Test
+        @DisplayName("Should have correct changed class method parameter type")
+        void testChangedParameterType() {
+            ChangeParameterTypeRefactoring typeChange = (ChangeParameterTypeRefactoring) refactorings.get(0);
+            assertEquals("Dict[str, float]", typeChange.getChangedParameter().getType().getTypeName(),
+                    "New parameter type should be 'Dict[str, float]'");
+        }
     }
 }
