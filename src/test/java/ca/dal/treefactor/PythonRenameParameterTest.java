@@ -1,11 +1,9 @@
 package ca.dal.treefactor;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import ca.dal.treefactor.model.UMLModel;
@@ -14,263 +12,150 @@ import ca.dal.treefactor.model.diff.refactoring.Refactoring;
 import ca.dal.treefactor.model.diff.refactoring.operations.RenameParameterRefactoring;
 import ca.dal.treefactor.util.UMLModelReader;
 
-public class PythonRenameParameterTest {
-    @Test
-    public void RenameParameterSimple() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = "def greet(n): print(f\"Hello, {n}!\")";
-        fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+@DisplayName("Python Parameter Rename Detection Tests")
+class PythonRenameParameterTest {
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = "def greet(name): print(f\"Hello, {name}!\")";
-        fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+    private UMLModel parentModel;
+    private UMLModel currentModel;
+    private List<Refactoring> refactorings;
 
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        // Verify refactoring detection
-        assertEquals(1, refactorings.size());
-        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
-
-        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
-        assertEquals("n", rename.getOriginalParameter().getName());
-        assertEquals("name", rename.getRenamedParameter().getName());
+    @BeforeEach
+    void setup() {
+        parentModel = null;
+        currentModel = null;
+        refactorings = null;
     }
 
-    @Test
-    public void RenameParameterWithDefaultValue() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-            def calculator(n = 1):
-                return n + 5
-            """;
-        fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+    private void createModelsFromCode(String beforeCode, String afterCode) {
+        Map<String, String> beforeContents = new HashMap<>();
+        beforeContents.put("example.py", beforeCode);
+        parentModel = new UMLModelReader(beforeContents).getUmlModel();
 
+        Map<String, String> afterContents = new HashMap<>();
+        afterContents.put("example.py", afterCode);
+        currentModel = new UMLModelReader(afterContents).getUmlModel();
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-                def calculator(num):
-                	return num + 5
-                """;
-        fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
-
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        // Verify refactoring detection
-        assertEquals(1, refactorings.size());
-        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
-
-        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
-        assertEquals("n", rename.getOriginalParameter().getName());
-        assertEquals("num", rename.getRenamedParameter().getName());
+        UMLModelDiff modelDiff = new UMLModelDiff(parentModel, currentModel);
+        refactorings = modelDiff.detectRefactorings();
     }
 
-    @Test
-    public void RenameTypedParameter() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-                def calculator(n: int):
-                	return n + 5
-            """;
-        fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+    private void assertSingleParameterRename(String expectedOriginal, String expectedRenamed) {
+        assertNotNull(refactorings, "Refactorings should not be null");
+        assertEquals(1, refactorings.size(), "Should detect exactly one refactoring");
 
+        Refactoring refactoring = refactorings.get(0);
+        assertTrue(refactoring instanceof RenameParameterRefactoring,
+                "Refactoring should be parameter rename");
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-                def calculator(num: int):
-                	return num + 5
-                """;
-        fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
-
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        // Verify refactoring detection
-        assertEquals(1, refactorings.size());
-        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
-
-        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
-        assertEquals("n", rename.getOriginalParameter().getName());
-        assertEquals("num", rename.getRenamedParameter().getName());
+        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactoring;
+        assertEquals(expectedOriginal, rename.getOriginalParameter().getName(),
+                "Original parameter name mismatch");
+        assertEquals(expectedRenamed, rename.getRenamedParameter().getName(),
+                "Renamed parameter name mismatch");
     }
 
-    @Test
-    public void RenameTypedParameterWithDefaultValue() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-                def calculator(n: int = 4):
-                	return n + 5
-            """;
-        fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+    @Nested
+    @DisplayName("Simple Parameter Rename Tests")
+    class SimpleParameterRenameTests {
 
+        @Test
+        @DisplayName("Basic parameter rename")
+        void testSimpleRename() {
+            createModelsFromCode(
+                    "def greet(n): print(f\"Hello, {n}!\")",
+                    "def greet(name): print(f\"Hello, {name}!\")"
+            );
+            assertSingleParameterRename("n", "name");
+        }
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-                def calculator(num: int = 5):
-                	return num + 5
-                """;
-        fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
-
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        // Verify refactoring detection
-        assertEquals(1, refactorings.size());
-        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
-
-        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
-        assertEquals("n", rename.getOriginalParameter().getName());
-        assertEquals("num", rename.getRenamedParameter().getName());
+        @Test
+        @DisplayName("Parameter rename with default value")
+        void testRenameWithDefault() {
+            createModelsFromCode(
+                    "def calculator(n = 1):\n    return n + 5",
+                    "def calculator(num):\n    return num + 5"
+            );
+            assertSingleParameterRename("n", "num");
+        }
     }
 
-    @Test
-    public void RenameParameterTwoParams() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-                def fullname(fname, lname):
-                	return fname + lname
-                fullname("amy", "doe")
-        """;
-        fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+    @Nested
+    @DisplayName("Typed Parameter Rename Tests")
+    class TypedParameterRenameTests {
 
+        @Test
+        @DisplayName("Rename typed parameter")
+        void testTypedParameterRename() {
+            createModelsFromCode(
+                    "def calculator(n: int):\n    return n + 5",
+                    "def calculator(num: int):\n    return num + 5"
+            );
+            assertSingleParameterRename("n", "num");
+        }
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-               def fullname(firstname, lastname):
-                	return firstname + lastname
-               fullname("amy", "doe")
-        """;
-        fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
-
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        // Verify refactoring detection
-        // first parameter
-        assertEquals(2, refactorings.size());
-        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
-
-        RenameParameterRefactoring rename1 = (RenameParameterRefactoring) refactorings.get(0);
-        assertEquals("fname", rename1.getOriginalParameter().getName());
-        assertEquals("firstname", rename1.getRenamedParameter().getName());
-
-        // second parameter
-        assertTrue(refactorings.get(1) instanceof RenameParameterRefactoring);
-        RenameParameterRefactoring rename2 = (RenameParameterRefactoring) refactorings.get(1);
-        assertEquals("lname", rename2.getOriginalParameter().getName());
-        assertEquals("lastname", rename2.getRenamedParameter().getName());
+        @Test
+        @DisplayName("Rename typed parameter with default")
+        void testTypedParameterWithDefault() {
+            createModelsFromCode(
+                    "def calculator(n: int = 4):\n    return n + 5",
+                    "def calculator(num: int = 5):\n    return num + 5"
+            );
+            assertSingleParameterRename("n", "num");
+        }
     }
 
-    @Test
-    public void RenameParameterThreeParams() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-                def fullname(fname, lname):
-                	return fname + lname
-                fullname("amy", "doe")
-                
-                def greet(p):
-                    print(f"Hello {p}")
-        """;
-        fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+    @Nested
+    @DisplayName("Multiple Parameter Rename Tests")
+    class MultipleParameterRenameTests {
 
+        @Test
+        @DisplayName("Rename two parameters")
+        void testTwoParameterRename() {
+            createModelsFromCode(
+                    "def fullname(fname, lname):\n    return fname + lname",
+                    "def fullname(firstname, lastname):\n    return firstname + lastname"
+            );
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-               def fullname(firstname, lastname):
-                	return firstname + lastname
-               fullname("amy", "doe")
-               
-               def greet(person:str):
-                    print(f"Hello {person}")
-        """;
-        fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+            assertEquals(2, refactorings.size(), "Should detect two parameter renames");
 
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
+            var rename1 = (RenameParameterRefactoring) refactorings.get(0);
+            assertEquals("fname", rename1.getOriginalParameter().getName(),
+                    "First parameter original name mismatch");
+            assertEquals("firstname", rename1.getRenamedParameter().getName(),
+                    "First parameter new name mismatch");
 
-        // Verify refactoring detection
-        // first parameter
-        assertEquals(3, refactorings.size());
-        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring);
-
-        RenameParameterRefactoring rename1 = (RenameParameterRefactoring) refactorings.get(0);
-        assertEquals("fname", rename1.getOriginalParameter().getName());
-        assertEquals("firstname", rename1.getRenamedParameter().getName());
-
-        // second parameter
-        assertTrue(refactorings.get(1) instanceof RenameParameterRefactoring);
-        RenameParameterRefactoring rename2 = (RenameParameterRefactoring) refactorings.get(1);
-        assertEquals("lname", rename2.getOriginalParameter().getName());
-        assertEquals("lastname", rename2.getRenamedParameter().getName());
-
-        // third parameter
-        assertTrue(refactorings.get(2) instanceof RenameParameterRefactoring);
-        RenameParameterRefactoring rename3 = (RenameParameterRefactoring) refactorings.get(2);
-        assertEquals("p", rename3.getOriginalParameter().getName());
-        assertEquals("person", rename3.getRenamedParameter().getName());
+            var rename2 = (RenameParameterRefactoring) refactorings.get(1);
+            assertEquals("lname", rename2.getOriginalParameter().getName(),
+                    "Second parameter original name mismatch");
+            assertEquals("lastname", rename2.getRenamedParameter().getName(),
+                    "Second parameter new name mismatch");
+        }
     }
 
-    @Test
-    public void RenameParameterInsideClass() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-            class Square:
-               def calculate_perimeter(self, side_length):
-                   return 4 * side_length
-                   """;
-        fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+    @Nested
+    @DisplayName("Class Method Parameter Rename Tests")
+    class ClassMethodParameterRenameTests {
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-            class Square:
-               def calculate_perimeter(self, s):
-                   return 4 * s
-                   """;
-        fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
-
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        // Verify refactoring detection
-        assertEquals(1, refactorings.size(), "Should detect exactly one parameter rename");
-        assertTrue(refactorings.get(0) instanceof RenameParameterRefactoring,
-                "Should be a parameter rename refactoring");
-
-        RenameParameterRefactoring rename = (RenameParameterRefactoring) refactorings.get(0);
-        assertEquals("side_length", rename.getOriginalParameter().getName(),
-                "Original parameter should be 'side_length'");
-        assertEquals("s", rename.getRenamedParameter().getName(),
-                "Renamed parameter should be 's'");
+        @Test
+        @DisplayName("Rename parameter in class method")
+        void testClassMethodParameterRename() {
+            createModelsFromCode(
+                    """
+                    class Square:
+                        def calculate_perimeter(self, side_length):
+                            return 4 * side_length
+                    """,
+                    """
+                    class Square:
+                        def calculate_perimeter(self, s):
+                            return 4 * s
+                    """
+            );
+            assertSingleParameterRename("side_length", "s");
+        }
     }
 }
