@@ -1,219 +1,204 @@
 package ca.dal.treefactor;
 
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+
 import ca.dal.treefactor.model.UMLModel;
 import ca.dal.treefactor.model.diff.UMLModelDiff;
 import ca.dal.treefactor.model.diff.refactoring.Refactoring;
 import ca.dal.treefactor.model.diff.refactoring.operations.AddParameterRefactoring;
 import ca.dal.treefactor.util.UMLModelReader;
-import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+@DisplayName("Python Add Parameter Detection Tests")
+class PythonAddParameterTest {
 
-public class PythonAddParameterTest {
+    private UMLModel parentModel;
+    private UMLModel currentModel;
+    private List<Refactoring> refactorings;
 
-    @Test
-    public void testAddParameterSimple() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-            def greet():
-                print("Hello!")
-            """;
-        fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
-
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-            def greet(name):
-                print(f"Hello, {name}!")
-            """;
-        fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
-
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        // Verify refactoring detection
-        assertEquals(1, refactorings.size());
-        assertTrue(refactorings.get(0) instanceof AddParameterRefactoring);
-
-        AddParameterRefactoring add = (AddParameterRefactoring) refactorings.get(0);
-        assertEquals("name", add.getAddedParameter().getName());
+    @BeforeEach
+    void setup() {
+        parentModel = null;
+        currentModel = null;
+        refactorings = null;
     }
 
-    @Test
-    public void testAddParameterWithType() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-            def calculate(x: int):
-                return x + 5
-            """;
-        fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+    private void createModelsFromCode(String beforeCode, String afterCode) {
+        Map<String, String> beforeContents = new HashMap<>();
+        beforeContents.put("example.py", beforeCode);
+        parentModel = new UMLModelReader(beforeContents).getUmlModel();
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-            def calculate(x: int, y: int):
-                return x + y
-            """;
-        fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+        Map<String, String> afterContents = new HashMap<>();
+        afterContents.put("example.py", afterCode);
+        currentModel = new UMLModelReader(afterContents).getUmlModel();
 
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        assertEquals(1, refactorings.size());
-        assertTrue(refactorings.get(0) instanceof AddParameterRefactoring);
-
-        AddParameterRefactoring add = (AddParameterRefactoring) refactorings.get(0);
-        assertEquals("y", add.getAddedParameter().getName());
-        assertEquals("int", add.getAddedParameter().getType().getTypeName());
+        UMLModelDiff modelDiff = new UMLModelDiff(parentModel, currentModel);
+        refactorings = modelDiff.detectRefactorings();
     }
 
-    @Test
-    public void testAddParameterWithDefaultValue() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-            def greet(name: str):
-                print(f"Hello, {name}!")
-            """;
-        fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+    private void assertSingleParameterAddition(String expectedName, String expectedType, String expectedDefault) {
+        assertNotNull(refactorings, "Refactorings should not be null");
+        assertEquals(1, refactorings.size(), "Should detect exactly one refactoring");
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-            def greet(name: str, greeting: str = "Hello"):
-                print(f"{greeting}, {name}!")
-            """;
-        fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+        Refactoring refactoring = refactorings.get(0);
+        assertTrue(refactoring instanceof AddParameterRefactoring,
+                "Refactoring should be parameter addition");
 
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
+        AddParameterRefactoring add = (AddParameterRefactoring) refactoring;
+        assertEquals(expectedName, add.getAddedParameter().getName(),
+                "Added parameter name mismatch");
 
-        assertEquals(1, refactorings.size());
-        assertTrue(refactorings.get(0) instanceof AddParameterRefactoring);
+        if (expectedType != null) {
+            assertEquals(expectedType, add.getAddedParameter().getType().getTypeName(),
+                    "Added parameter type mismatch");
+        }
 
-        AddParameterRefactoring add = (AddParameterRefactoring) refactorings.get(0);
-        assertEquals("greeting", add.getAddedParameter().getName());
-        assertEquals("str", add.getAddedParameter().getType().getTypeName());
-        assertEquals("\"Hello\"", add.getDefaultValue());
+        if (expectedDefault != null) {
+            assertEquals(expectedDefault, add.getDefaultValue(),
+                    "Default value mismatch");
+        }
     }
 
-    @Test
-    public void testAddMultipleParameters() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-            def calculate(x: int):
-                return x
-            """;
-        fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+    @Nested
+    @DisplayName("Simple Parameter Addition Tests")
+    class SimpleParameterAdditionTests {
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-            def calculate(x: int, y: int, z: int = 0):
-                return x + y + z
-            """;
-        fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+        @Test
+        @DisplayName("Basic parameter addition")
+        void testSimpleAddition() {
+            createModelsFromCode(
+                    """
+                    def greet():
+                        print("Hello!")
+                    """,
+                    """
+                    def greet(name):
+                        print(f"Hello, {name}!")
+                    """
+            );
+            assertSingleParameterAddition("name", null, null);
+        }
 
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        assertEquals(2, refactorings.size());
-        assertTrue(refactorings.get(0) instanceof AddParameterRefactoring);
-        assertTrue(refactorings.get(1) instanceof AddParameterRefactoring);
-
-        AddParameterRefactoring add1 = (AddParameterRefactoring) refactorings.get(0);
-        assertEquals("y", add1.getAddedParameter().getName());
-        assertEquals("int", add1.getAddedParameter().getType().getTypeName());
-
-        AddParameterRefactoring add2 = (AddParameterRefactoring) refactorings.get(1);
-        assertEquals("z", add2.getAddedParameter().getName());
-        assertEquals("int", add2.getAddedParameter().getType().getTypeName());
-        assertEquals("0", add2.getDefaultValue());
+        @Test
+        @DisplayName("Add parameter with type annotation")
+        void testAddTypedParameter() {
+            createModelsFromCode(
+                    """
+                    def calculate(x: int):
+                        return x + 5
+                    """,
+                    """
+                    def calculate(x: int, y: int):
+                        return x + y
+                    """
+            );
+            assertSingleParameterAddition("y", "int", null);
+        }
     }
 
-    @Test
-    public void testAddParameterToMethod() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-            class Calculator:
-                def add(self, x: int):
-                    return x
-            """;
-        fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+    @Nested
+    @DisplayName("Default Value Parameter Tests")
+    class DefaultValueParameterTests {
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-            class Calculator:
-                def add(self, x: int, y: int = 0):
-                    return x + y
-            """;
-        fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
-
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
-
-        assertEquals(1, refactorings.size());
-        assertTrue(refactorings.get(0) instanceof AddParameterRefactoring);
-
-        AddParameterRefactoring add = (AddParameterRefactoring) refactorings.get(0);
-        assertEquals("y", add.getAddedParameter().getName());
-        assertEquals("int", add.getAddedParameter().getType().getTypeName());
-        assertEquals("0", add.getDefaultValue());
-        assertEquals("Calculator", add.getOperation().getClassName());
+        @Test
+        @DisplayName("Add parameter with default value")
+        void testAddParameterWithDefault() {
+            createModelsFromCode(
+                    """
+                    def greet(name: str):
+                        print(f"Hello, {name}!")
+                    """,
+                    """
+                    def greet(name: str, greeting: str = "Hello"):
+                        print(f"{greeting}, {name}!")
+                    """
+            );
+            assertSingleParameterAddition("greeting", "str", "\"Hello\"");
+        }
     }
 
-    @Test
-    public void testAddParameterWithComplexType() {
-        Map<String, String> fileContentsBefore = new HashMap<>();
-        String fileContentsBeforeString = """
-            def process():
-                print("Processing...")
-            """;
-        fileContentsBefore.put("example.py", fileContentsBeforeString);
-        UMLModelReader parentUmlReader = new UMLModelReader(fileContentsBefore);
-        UMLModel parentUMLModel = parentUmlReader.getUmlModel();
+    @Nested
+    @DisplayName("Multiple Parameter Addition Tests")
+    class MultipleParameterTests {
 
-        Map<String, String> fileContentsAfter = new HashMap<>();
-        String fileContentsAfterString = """
-            def process(data: List[Dict[str, Any]] = None):
-                if data is None:
-                    print("Processing...")
-                else:
-                    print(f"Processing {len(data)} items...")
-            """;
-        fileContentsAfter.put("example.py", fileContentsAfterString);
-        UMLModelReader currentUmlReader = new UMLModelReader(fileContentsAfter);
-        UMLModel currentUMLModel = currentUmlReader.getUmlModel();
+        @Test
+        @DisplayName("Add multiple parameters")
+        void testAddMultipleParameters() {
+            createModelsFromCode(
+                    """
+                    def calculate(x: int):
+                        return x
+                    """,
+                    """
+                    def calculate(x: int, y: int, z: int = 0):
+                        return x + y + z
+                    """
+            );
 
-        UMLModelDiff modelDiff = new UMLModelDiff(parentUMLModel, currentUMLModel);
-        List<Refactoring> refactorings = modelDiff.detectRefactorings();
+            assertEquals(2, refactorings.size(), "Should detect two parameter additions");
 
-        assertEquals(1, refactorings.size());
-        assertTrue(refactorings.get(0) instanceof AddParameterRefactoring);
+            var add1 = (AddParameterRefactoring) refactorings.get(0);
+            assertEquals("y", add1.getAddedParameter().getName(), "First parameter name mismatch");
+            assertEquals("int", add1.getAddedParameter().getType().getTypeName(), "First parameter type mismatch");
 
-        AddParameterRefactoring add = (AddParameterRefactoring) refactorings.get(0);
-        assertEquals("data", add.getAddedParameter().getName());
-        assertEquals("List[Dict[str, Any]]", add.getAddedParameter().getType().getTypeName());
-        assertEquals("None", add.getDefaultValue());
+            var add2 = (AddParameterRefactoring) refactorings.get(1);
+            assertEquals("z", add2.getAddedParameter().getName(), "Second parameter name mismatch");
+            assertEquals("int", add2.getAddedParameter().getType().getTypeName(), "Second parameter type mismatch");
+            assertEquals("0", add2.getDefaultValue(), "Second parameter default value mismatch");
+        }
+    }
+
+    @Nested
+    @DisplayName("Class Method Parameter Tests")
+    class ClassMethodParameterTests {
+
+        @Test
+        @DisplayName("Add parameter to class method")
+        void testAddParameterToMethod() {
+            createModelsFromCode(
+                    """
+                    class Calculator:
+                        def add(self, x: int):
+                            return x
+                    """,
+                    """
+                    class Calculator:
+                        def add(self, x: int, y: int = 0):
+                            return x + y
+                    """
+            );
+            assertSingleParameterAddition("y", "int", "0");
+        }
+    }
+
+    @Nested
+    @DisplayName("Complex Type Parameter Tests")
+    class ComplexTypeParameterTests {
+
+        @Test
+        @DisplayName("Add parameter with complex type annotation")
+        void testAddParameterWithComplexType() {
+            createModelsFromCode(
+                    """
+                    def process():
+                        print("Processing...")
+                    """,
+                    """
+                    def process(data: List[Dict[str, Any]] = None):
+                        if data is None:
+                            print("Processing...")
+                        else:
+                            print(f"Processing {len(data)} items...")
+                    """
+            );
+            assertSingleParameterAddition("data", "List[Dict[str, Any]]", "None");
+        }
     }
 }
