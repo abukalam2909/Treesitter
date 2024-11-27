@@ -31,3 +31,11 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Project Specific ###
+.config
+DesigniteJava.jar
+tree-sitter.dll
+dj_output
+logs
+src/main/resources/native
