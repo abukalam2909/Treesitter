@@ -3,6 +3,7 @@ package ca.dal.treefactor.util;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +37,17 @@ public class JSASTVisitor extends ASTVisitor {
     public void visit(ASTUtil.ASTNode node) {
         LOGGER.info("Visiting node of type: {}", node.getType());
 
+        processNodeBasedOnType(node);
+
+        // Visit children unless it's a method node
+        if (!isMethodNode(node)) {
+            for (ASTUtil.ASTNode child : node.getChildren()) {
+                visit(child);
+            }
+        }
+    }
+
+    private void processNodeBasedOnType(ASTUtil.ASTNode node) {
         switch(node.getType()) {
             case "program":
                 LOGGER.info("Processing program node");
@@ -46,61 +58,78 @@ public class JSASTVisitor extends ASTVisitor {
                 processClass(node);
                 break;
             case "method_definition":
-                if (currentClass != null) {
-                    LOGGER.info("Processing method in class");
-                    processMethod(node);
-                }
+                processMethodDefinition(node);
                 break;
             case "function_declaration":
-                if (currentClass == null) {
-                    LOGGER.info("Processing standalone function");
-                    processMethod(node);
-                }
+                processFunctionDeclaration(node);
                 break;
             case "class_field":
             case "field_definition":
             case "property_definition":
-                if (currentClass != null) {
-                    LOGGER.info("Processing field");
-                    processField(node);
-                }
+                processClassField(node);
                 break;
             case "import_statement":
                 LOGGER.info("Processing import");
                 processImport(node);
                 break;
             case "arrow_function":
-                if (currentClass == null) {
-                    LOGGER.info("Processing arrow function");
-                    processMethod(node);
-                }
+                processArrowFunction(node);
                 break;
             case "variable_declaration":
-                if (currentClass != null) {
-                    LOGGER.info("Processing variable declaration in class context");
-                    for (ASTUtil.ASTNode child : node.getChildren()) {
-                        if (child.getType().equals("variable_declarator")) {
-                            processField(child);
-                        }
-                    }
-                }
+                processVariableDeclaration(node);
                 break;
             default:
                 LOGGER.info("Unhandled node type: {}", node.getType());
         }
+    }
 
-        // Visit children unless it's a method node
-        if (!isMethodNode(node)) {
+    private void processMethodDefinition(ASTUtil.ASTNode node) {
+        if (currentClass != null) {
+            LOGGER.info("Processing method in class");
+            processMethod(node);
+        }
+    }
+
+    private void processFunctionDeclaration(ASTUtil.ASTNode node) {
+        if (currentClass == null) {
+            LOGGER.info("Processing standalone function");
+            processMethod(node);
+        }
+    }
+
+    private void processClassField(ASTUtil.ASTNode node) {
+        if (currentClass != null) {
+            LOGGER.info("Processing field");
+            processField(node);
+        }
+    }
+
+    private void processArrowFunction(ASTUtil.ASTNode node) {
+        if (currentClass == null) {
+            LOGGER.info("Processing arrow function");
+            processMethod(node);
+        }
+    }
+
+    private void processVariableDeclaration(ASTUtil.ASTNode node) {
+        if (currentClass != null) {
+            LOGGER.info("Processing variable declaration in class context");
             for (ASTUtil.ASTNode child : node.getChildren()) {
-                visit(child);
+                if (child.getType().equals("variable_declarator")) {
+                    processField(child);
+                }
             }
         }
     }
 
+    private static final Set<String> METHOD_NODE_TYPES = Set.of(
+            "method_definition",
+            "function_declaration",
+            "arrow_function"
+    );
+
     private boolean isMethodNode(ASTUtil.ASTNode node) {
-        return node.getType().equals("method_definition") ||
-                node.getType().equals("function_declaration") ||
-                node.getType().equals("arrow_function");
+        return METHOD_NODE_TYPES.contains(node.getType());
     }
 
     @Override
@@ -113,110 +142,178 @@ public class JSASTVisitor extends ASTVisitor {
     @Override
     protected void processClass(ASTUtil.ASTNode node) {
         LOGGER.info("Processing class node: {}", node.getType());
-        printNodeStructure(node, 0);  // Print full node structure
+        printNodeStructure(node, 0);
 
         String className = extractClassName(node);
-        LOGGER.info("Extracted class name: {}", className);
-
         if (className == null) {
             LOGGER.info("Class name is null, returning early");
             return;
         }
 
-        LocationInfo location = new LocationInfo(filePath, node.getStartPoint(), node.getEndPoint(),
-                CodeElementType.CLASS_DECLARATION);
-
+        LocationInfo location = createClassLocationInfo(node);
         UMLClass previousClass = currentClass;
-        currentClass = new UMLClass(extractModuleName(filePath), className, location);
-        LOGGER.info("Created new UML class: {}", className);
+        currentClass = createUMLClass(className, location);
 
-        // Process inheritance - try multiple possible node types
-        ASTUtil.ASTNode heritage = findChildByType(node, "extends_clause");
-        if (heritage == null) heritage = findChildByType(node, "extends");
-        if (heritage == null) heritage = findChildByType(node, "heritage_clause");
-        if (heritage == null) heritage = findChildByType(node, "class_heritage");
+        processClassHeritage(node);
+        processClassDecorator(node);
+        processClassBody(node);
 
+        addClassToModel(className);
+        currentClass = previousClass;
+    }
+
+    private LocationInfo createClassLocationInfo(ASTUtil.ASTNode node) {
+        return new LocationInfo(
+                filePath,
+                node.getStartPoint(),
+                node.getEndPoint(),
+                CodeElementType.CLASS_DECLARATION
+        );
+    }
+
+    private UMLClass createUMLClass(String className, LocationInfo location) {
+        return new UMLClass(extractModuleName(filePath), className, location);
+    }
+
+    private void processClassHeritage(ASTUtil.ASTNode node) {
+        ASTUtil.ASTNode heritage = findHeritageNode(node);
         if (heritage != null) {
-            LOGGER.info("Found heritage node of type: {}", heritage.getType());
-            String superclass = getChildText(heritage, "identifier");
-            if (superclass == null) {
-                // Try getting the text directly
-                superclass = heritage.getText(sourceCode).trim();
-                if (superclass.startsWith("extends ")) {
-                    superclass = superclass.substring(8).trim();
-                }
-            }
-            LOGGER.info("Extracted superclass: {}", superclass);
+            String superclass = extractSuperclass(heritage);
             if (superclass != null) {
                 currentClass.addSuperclass(superclass);
             }
         }
+    }
 
-        // Process decorators
+    private ASTUtil.ASTNode findHeritageNode(ASTUtil.ASTNode node) {
+        String[] heritageTypes = {
+                "extends_clause", "extends", "heritage_clause", "class_heritage"
+        };
+
+        for (String type : heritageTypes) {
+            ASTUtil.ASTNode heritage = findChildByType(node, type);
+            if (heritage != null) return heritage;
+        }
+        return null;
+    }
+
+    private String extractSuperclass(ASTUtil.ASTNode heritage) {
+        String superclass = getChildText(heritage, "identifier");
+        if (superclass == null) {
+            superclass = extractSuperclassFromText(heritage);
+        }
+        return superclass;
+    }
+
+    private static final String EXTENDS_PREFIX = "extends ";
+
+    private String extractSuperclassFromText(ASTUtil.ASTNode heritage) {
+        String text = heritage.getText(sourceCode).trim();
+        if (text.startsWith(EXTENDS_PREFIX)) {
+            return text.substring(EXTENDS_PREFIX.length()).trim();
+        }
+        return null;
+    }
+
+    private void processClassDecorator(ASTUtil.ASTNode node) {
         ASTUtil.ASTNode decorator = findChildByType(node, "decorator");
         if (decorator != null) {
-            LOGGER.info("Processing decorator");
-            LocationInfo decoratorLocation = new LocationInfo(filePath, decorator.getStartPoint(),
-                    decorator.getEndPoint(), CodeElementType.ANNOTATION_TYPE_DECLARATION);
-            String decoratorName = getChildText(decorator, "identifier");
-            if (decoratorName != null) {
-                currentClass.addAnnotation(new UMLAnnotation(decoratorName, decoratorLocation));
-            }
+            processDecoratorAnnotation(decorator);
         }
+    }
 
-        // Process class body
+    private void processDecoratorAnnotation(ASTUtil.ASTNode decorator) {
+        LocationInfo decoratorLocation = createDecoratorLocation(decorator);
+
+        String decoratorName = getChildText(decorator, "identifier");
+        if (decoratorName != null) {
+            currentClass.addAnnotation(new UMLAnnotation(decoratorName, decoratorLocation));
+        }
+    }
+
+    private LocationInfo createDecoratorLocation(ASTUtil.ASTNode decorator) {
+        return new LocationInfo(
+                filePath,
+                decorator.getStartPoint(),
+                decorator.getEndPoint(),
+                CodeElementType.ANNOTATION_TYPE_DECLARATION
+        );
+    }
+
+    private void processClassBody(ASTUtil.ASTNode node) {
         ASTUtil.ASTNode body = findChildByType(node, "class_body");
         if (body != null) {
-            LOGGER.info("Processing class body");
-            for (ASTUtil.ASTNode child : body.getChildren()) {
-                visit(child);
-            }
+            body.getChildren().forEach(this::visit);
         }
+    }
 
+    private void addClassToModel(String className) {
         LOGGER.info("Adding class {} to model", className);
         model.addClass(currentClass);
         LOGGER.info("Current model classes count: {}", model.getClasses().size());
-        currentClass = previousClass;
     }
 
     @Override
     protected void processMethod(ASTUtil.ASTNode node) {
         String methodName = extractMethodName(node);
-        LOGGER.info("Processing method: {}", methodName);
-        if (methodName == null) return;
+        if (isInvalidMethod(methodName)) return;
 
-        LocationInfo location = new LocationInfo(filePath, node.getStartPoint(), node.getEndPoint(),
-                CodeElementType.METHOD_DECLARATION);
+        UMLOperation operation = createOperation(node, methodName);
+        addOperationToModel(methodName, operation);
+    }
 
+    private boolean isInvalidMethod(String methodName) {
+        boolean isInvalid = methodName == null;
+        if (!isInvalid) {
+            LOGGER.info("Processing method: {}", methodName);
+        }
+        return isInvalid;
+    }
+
+    private UMLOperation createOperation(ASTUtil.ASTNode node, String methodName) {
+        LocationInfo location = createMethodLocation(node);
         UMLOperation operation = new UMLOperation(methodName, location);
         operation.setVisibility(Visibility.PUBLIC);
 
-        // Process async decorator if present
-        if (findChildByType(node, "async") != null) {
+        processAsyncDecorator(node, operation);
+        processParameters(node, operation);
+        setMethodBody(node, operation);
+
+        return operation;
+    }
+
+    private LocationInfo createMethodLocation(ASTUtil.ASTNode node) {
+        return new LocationInfo(filePath, node.getStartPoint(), node.getEndPoint(),
+                CodeElementType.METHOD_DECLARATION);
+    }
+
+    private void processAsyncDecorator(ASTUtil.ASTNode node, UMLOperation operation) {
+        ASTUtil.ASTNode asyncNode = findChildByType(node, "async");
+        if (asyncNode != null) {
             LocationInfo asyncLocation = new LocationInfo(filePath, node.getStartPoint(), node.getEndPoint(),
                     CodeElementType.ANNOTATION_TYPE_DECLARATION);
             operation.addAnnotation(new UMLAnnotation("async", asyncLocation));
         }
+    }
 
-        // Process parameters
+    private void processParameters(ASTUtil.ASTNode node, UMLOperation operation) {
         ASTUtil.ASTNode params = findChildByType(node, "formal_parameters");
         if (params != null) {
-            for (ASTUtil.ASTNode param : params.getChildren()) {
-                processParameter(param, operation);
-            }
+            params.getChildren().forEach(param -> processParameter(param, operation));
         }
+    }
 
-        // Set method body
+    private void setMethodBody(ASTUtil.ASTNode node, UMLOperation operation) {
         ASTUtil.ASTNode body = findChildByType(node, "statement_block");
         if (body != null) {
             operation.setBody(body.getText(sourceCode));
         }
+    }
 
+    private void addOperationToModel(String methodName, UMLOperation operation) {
         if (currentClass != null) {
             operation.setClassName(currentClass.getName());
-            if (methodName.equals("constructor")) {
-                operation.setConstructor(true);
-            }
+            operation.setConstructor(methodName.equals("constructor"));
             currentClass.addOperation(operation);
             LOGGER.info("Added method {} to class {}", methodName, currentClass.getName());
         } else {
@@ -355,15 +452,17 @@ public class JSASTVisitor extends ASTVisitor {
 
     private void printNodeStructure(ASTUtil.ASTNode node, int depth) {
         String indent = "  ".repeat(depth);
-        LOGGER.info("{}[{}] '{}' (children: {})",
+        String sanitizedText = node.getText(sourceCode).replaceAll("\n", "\\n");
+        String logMessage = String.format("%s[%s] '%s' (children: %d)",
                 indent,
                 node.getType(),
-                node.getText(sourceCode).replaceAll("\n", "\\n"),
-                node.getChildren().size());
+                sanitizedText,
+                node.getChildren().size()
+        );
 
-        for (ASTUtil.ASTNode child : node.getChildren()) {
-            printNodeStructure(child, depth + 1);
-        }
+        LOGGER.info(logMessage);
+
+        node.getChildren().forEach(child -> printNodeStructure(child, depth + 1));
     }
 
     private String extractClassName(ASTUtil.ASTNode node) {
