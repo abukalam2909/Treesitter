@@ -1,4 +1,4 @@
-package ca.dal.treefactor;
+package ca.dal.treefactor.unitTest;
 
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.BeforeEach;

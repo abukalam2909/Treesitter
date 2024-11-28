@@ -1,4 +1,4 @@
-package ca.dal.treefactor;
+package ca.dal.treefactor.unitTest;
 
 import ca.dal.treefactor.util.ASTUtil;
 import ca.dal.treefactor.util.TreeSitterUtil;

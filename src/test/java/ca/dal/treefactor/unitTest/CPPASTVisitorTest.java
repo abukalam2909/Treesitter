@@ -1,4 +1,4 @@
-package ca.dal.treefactor;
+package ca.dal.treefactor.unitTest;
 
 import ca.dal.treefactor.model.UMLModel;
 import ca.dal.treefactor.model.elements.UMLClass;
@@ -13,7 +13,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Nested;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 

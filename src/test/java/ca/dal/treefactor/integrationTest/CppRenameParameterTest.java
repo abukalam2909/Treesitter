@@ -1,4 +1,4 @@
-package ca.dal.treefactor;
+package ca.dal.treefactor.integrationTest;
 
 import ca.dal.treefactor.model.UMLModel;
 import ca.dal.treefactor.model.diff.UMLModelDiff;
@@ -8,7 +8,6 @@ import ca.dal.treefactor.util.UMLModelReader;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
