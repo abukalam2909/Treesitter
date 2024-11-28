@@ -40,6 +40,7 @@ jobs:
 
       - name: Run Tests
         run: |
+          export MAVEN_OPTS="--enable-native-access=ALL-UNNAMED"
           mvn -B test
           echo "------ Test Results ------"
           find target/surefire-reports -name "TEST-*.xml" -exec cat {} \;
