@@ -1,4 +1,4 @@
-package ca.dal.treefactor;
+package ca.dal.treefactor.unitTest;
 
 import ca.dal.treefactor.model.CodeElementType;
 import ca.dal.treefactor.model.core.*;

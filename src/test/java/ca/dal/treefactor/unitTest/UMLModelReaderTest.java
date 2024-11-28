@@ -1,4 +1,4 @@
-package ca.dal.treefactor;
+package ca.dal.treefactor.unitTest;
 
 import java.util.HashMap;
 import java.util.Map;
