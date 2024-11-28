@@ -273,9 +273,9 @@ After establishing the core refactoring detection rules with Python, we extended
    - First creating tests for language-specific AST visitors
    - Implementing the visitors
    - Validating that both the visitor tests and refactoring detection tests passed
-  
-## Design Principles
 
+  
+# Design Principles
 ## SOLID Principles
 ### 1. Single Responsibility Principle 
 Each class in the application has a well-defined single responsibility:
