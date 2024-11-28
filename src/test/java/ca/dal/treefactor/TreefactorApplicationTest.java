@@ -21,14 +21,33 @@ class TreefactorApplicationTest {
     private static final String INVALID_COMMIT_ID = "invalidCommitHash";
     private static final String GITHUB_REPO_URL = "https://github.com/hxu47/TreefactorTest-Py";
     private static final String INVALID_GITHUB_REPO_URL = "https://invalid.github.com/repo";
+    private static Git git;
+
+//    @BeforeAll
+//    static void setUpBeforeAll() throws Exception {
+//        File repoDir = new File(TEST_REPO_PATH);
+//        if (!repoDir.exists()) {
+//            // Clone the repository automatically if it doesn't exist
+//            cloneRepository(GITHUB_REPO_URL, TEST_REPO_PATH);
+//        }
+//    }
 
     @BeforeAll
     static void setUpBeforeAll() throws Exception {
+        // Delete any existing repository first
         File repoDir = new File(TEST_REPO_PATH);
-        if (!repoDir.exists()) {
-            // Clone the repository automatically if it doesn't exist
-            cloneRepository(GITHUB_REPO_URL, TEST_REPO_PATH);
+        if (repoDir.exists()) {
+            deleteDirectory(repoDir);
         }
+
+        // Clone fresh repository
+        git = Git.cloneRepository()
+                .setURI(GITHUB_REPO_URL)
+                .setDirectory(new File(TEST_REPO_PATH))
+                .call();
+
+        // Fetch all commits to ensure they're available
+        git.fetch().setRemote("origin").call();
     }
 
     @Test
@@ -97,8 +116,20 @@ class TreefactorApplicationTest {
         System.out.println("Repository cloned to: " + repoDirectory);
     }
 
+//    @AfterAll
+//    static void cleanupAfterAll() {
+//        File repoDir = new File(TEST_REPO_PATH);
+//        if (repoDir.exists()) {
+//            deleteDirectory(repoDir);
+//            System.out.println("Repository deleted: " + TEST_REPO_PATH);
+//        }
+//    }
+
     @AfterAll
     static void cleanupAfterAll() {
+        if (git != null) {
+            git.close();
+        }
         File repoDir = new File(TEST_REPO_PATH);
         if (repoDir.exists()) {
             deleteDirectory(repoDir);

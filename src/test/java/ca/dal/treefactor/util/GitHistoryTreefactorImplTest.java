@@ -1,8 +1,6 @@
 package ca.dal.treefactor.util;
 
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.Repository;
@@ -13,81 +11,109 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class GitHistoryTreefactorImplTest {
-
     private static Repository repository;
     private static GitHistoryTreefactorImpl gitHistoryTreefactor;
-    private static String repoDirectory = "TreefactorTest-Py"; // Directory where the repo will be cloned
+    private static final String REPO_DIRECTORY = "TreefactorTest-Py";
+    private static final String MAIN_FOLDER_PATH = "commit_contents";
+    private static Git git;
 
-    // Before all tests, clone the repository and initialize objects
     @BeforeAll
     static void setup() throws Exception {
-        String repoUrl = "https://github.com/hxu47/TreefactorTest-Py"; // Repository URL
+        String repoUrl = "https://github.com/hxu47/TreefactorTest-Py";
+        File repoFolder = new File(REPO_DIRECTORY);
+        File mainFolder = new File(MAIN_FOLDER_PATH);
 
-        // Check if the repo exists, otherwise clone it
-        if (!Files.exists(Paths.get(repoDirectory))) {
-            cloneRepository(repoUrl, repoDirectory);  // Automatically clone the repo
+        // Cleanup any existing directories
+        if (repoFolder.exists()) {
+            deleteDirectory(repoFolder);
         }
+        if (mainFolder.exists()) {
+            deleteDirectory(mainFolder);
+        }
+
+        // Clone fresh repository
+        git = Git.cloneRepository()
+                .setURI(repoUrl)
+                .setDirectory(repoFolder)
+                .call();
+
+        // Ensure all commits are fetched
+        git.fetch().setRemote("origin").call();
 
         // Initialize repository
         FileRepositoryBuilder builder = new FileRepositoryBuilder();
-        repository = builder.setGitDir(new File(repoDirectory + "/.git"))
-                            .readEnvironment()
-                            .findGitDir()
-                            .build();
-        
+        repository = builder.setGitDir(new File(REPO_DIRECTORY + "/.git"))
+                .readEnvironment()
+                .findGitDir()
+                .build();
+
         gitHistoryTreefactor = new GitHistoryTreefactorImpl();
+
+        // Create main folder for commit contents
+        mainFolder.mkdirs();
     }
 
-    // Test to detect commit at a specific commitId
     @Test
     void testDetectAtCommit() throws Exception {
-        String commitId = "1105dbaf0706ffe22faea5f932dd73da2ef95118";
+        // Get a valid commit ID from the repository
+        String commitId = git.log()
+                .setMaxCount(1)
+                .call()
+                .iterator()
+                .next()
+                .getName();
 
-        // Create a temporary folder for commit contents
-        String mainFolderPath = "commit_contents";
-        File mainFolder = new File(mainFolderPath);
-        if (mainFolder.exists()) {
-            deleteDirectory(mainFolder); // Cleanup before test
+        // Create commit folder
+        File commitFolder = new File(MAIN_FOLDER_PATH, commitId);
+        if (!commitFolder.exists()) {
+            commitFolder.mkdirs();
         }
 
         // Run the detectAtCommit method
         gitHistoryTreefactor.detectAtCommit(repository, commitId);
 
-        // Verify that the commit folder exists
-        File commitFolder = new File(mainFolderPath + File.separator + commitId);
+        // Verify that the commit folder exists and contains files
         assertTrue(commitFolder.exists(), "Commit folder should be created.");
-
-        // Verify that the UML model files exist in the commit folder (or verify specific file contents)
         assertTrue(commitFolder.listFiles().length > 0, "Commit folder should contain files.");
     }
 
-    // Test to detect all commits in the given branch
     @Test
     void testDetectAll() throws Exception {
-        // Create a temporary folder for commit contents
-        String mainFolderPath = "commit_contents";
-        File mainFolder = new File(mainFolderPath);
-        if (mainFolder.exists()) {
-            deleteDirectory(mainFolder); // Cleanup before test
+        // Create main folder if it doesn't exist
+        File mainFolder = new File(MAIN_FOLDER_PATH);
+        if (!mainFolder.exists()) {
+            mainFolder.mkdirs();
         }
 
         // Run the detectAll method
-        gitHistoryTreefactor.detectAll(repository, "main"); // Change "main" to the branch you want to test
+        gitHistoryTreefactor.detectAll(repository, "main");
 
-        // Verify that the main folder contains subfolders for commits
-        assertTrue(mainFolder.listFiles().length > 0, "Main folder should contain commit folders.");
+        // Verify that the main folder contains commit folders
+        assertTrue(mainFolder.exists() && mainFolder.isDirectory(),
+                "Main folder should exist and be a directory");
+        assertTrue(mainFolder.list() != null && mainFolder.list().length > 0,
+                "Main folder should contain commit folders.");
     }
 
-    // Helper method to clone a repository using JGit
-    private static void cloneRepository(String repoUrl, String repoDirectory) throws Exception {
-        Git.cloneRepository()
-           .setURI(repoUrl)
-           .setDirectory(new File(repoDirectory))
-           .call();
-        System.out.println("Repository cloned to: " + repoDirectory);
+    @AfterAll
+    static void cleanup() {
+        if (git != null) {
+            git.close();
+        }
+        // Clean up both directories
+        File repoFolder = new File(REPO_DIRECTORY);
+        File mainFolder = new File(MAIN_FOLDER_PATH);
+
+        if (repoFolder.exists()) {
+            deleteDirectory(repoFolder);
+            System.out.println("Repository deleted: " + REPO_DIRECTORY);
+        }
+        if (mainFolder.exists()) {
+            deleteDirectory(mainFolder);
+            System.out.println("Main folder deleted: " + MAIN_FOLDER_PATH);
+        }
     }
 
-    // Helper method to delete a directory recursively
     private static void deleteDirectory(File directory) {
         File[] files = directory.listFiles();
         if (files != null) {
@@ -100,15 +126,5 @@ class GitHistoryTreefactorImplTest {
             }
         }
         directory.delete();
-    }
-
-    // After all tests, delete the cloned repository
-    @AfterAll
-    static void cleanup() {
-        File repoFolder = new File(repoDirectory);
-        if (repoFolder.exists()) {
-            deleteDirectory(repoFolder); // Cleanup the cloned repository
-            System.out.println("Repository deleted: " + repoDirectory);
-        }
     }
 }
