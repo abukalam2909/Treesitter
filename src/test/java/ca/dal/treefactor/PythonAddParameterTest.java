@@ -44,6 +44,7 @@ class PythonAddParameterTest {
     }
 
     private void assertSingleParameterAddition(String expectedName, String expectedType, String expectedDefault) {
+        System.out.println("PWD is : "+System.getProperty("user.dir"));
         assertNotNull(refactorings, "Refactorings should not be null");
         assertEquals(1, refactorings.size(), "Should detect exactly one refactoring");
 

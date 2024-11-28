@@ -27,6 +27,26 @@ jobs:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
+       
+      - name: Setup tree-sitter
+        run: |
+          chmod +x ./setup_treefactor.sh
+          ./setup_treefactor.sh
+          chmod 644 ./libtree-sitter.so
+
+      - name: ExportLibraryPath
+        run: |  
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${{ github.workspace }}" >> $GITHUB_ENV
+      
+      - name: Debug library info
+        run: |
+          file ./libtree-sitter.so
+          ldd ./libtree-sitter.so
+
+      - name: Build with Maven
+        run: |
+          mvn clean package -DskipTests
 
       - name: Run Tests
-        run: mvn test
+        run: |
+          mvn test
