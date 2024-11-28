@@ -28,5 +28,25 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
+      - name: Setup tree-sitter
+        run: |
+          chmod +x ./setup_treefactor.sh
+          ./setup_treefactor.sh
+          chmod +x ./libtree-sitter.so 
+          ls -la src/main/resources/native/linux/
+          ls -la .
+          pwd
+
+      - name: ExportLibraryPath
+        run: |  
+          export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH
+
+      - name: Build with Maven
+        run: |
+          mvn clean package -DskipTests
+          pwd
+
       - name: Run Tests
-        run: mvn test
+        run: |
+          pwd
+          mvn test
