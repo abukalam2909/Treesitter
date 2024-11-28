@@ -29,6 +29,62 @@ TreeFactor is a command-line tool for detecting refactoring operations in multi-
   - Method renaming
 - **Parameter Renaming Detection**: Supports parameter renaming detection in JavaScript and C++
 
+# Dependencies
+**1. Core Requirements**
+  - Java 11 or higher
+  - Git
+  - GCC compiler
+  - Bash shell environment
+
+**2. Tree-sitter Libraries**
+  - Core Tree-sitter library
+  - Language-specific parsers:
+    - tree-sitter-python
+    - tree-sitter-cpp
+    - tree-sitter-javascript
+
+**3. Operating System Support**
+  - macOS (dylib format)
+  - Linux (so format)
+  - Windows (dll format)
+
+# Build and Deployment Instructions
+
+## 1. Project Setup
+1. Clone the project repository:
+```bash
+git clone https://github.com/CSCI5308/course-project-g03.git
+cd course-project-g03
+```
+2. Set up Tree-sitter dependencies:
+```bash
+# Make the setup script executable
+chmod +x setup_treefactor.sh
+
+# Run the setup script
+./setup_treefactor.sh
+```
+
+## 2. Build the Project
+Build using Maven:
+```bash
+mvn clean install
+```
+
+## 3. Run the Application
+The application can be run with different options:
+1. Analyze all commits in a repository:
+```bash
+./treefactor.sh -a /path/to/repo [branch-name]
+```
+2. Analyze a specific commit:
+```bash
+./treefactor.sh -c /path/to/repo [commit-hash]
+```
+3. Analyze a GitHub repository commit:
+```bash
+./treefactor.sh -gc https://github.com/username/repo [your-token] [commit-hash] [timeout]
+```
 
 # Usage Scenarios
 
@@ -41,7 +97,7 @@ The tool supports three main command-line options:
 * `-gc`: Analyze a specific commit from a GitHub repository
 
 ### 1. Analyzing All Commits in a Local Repository
-```
+```bash
 ./treefactor.sh -a <path-to-local-repo> <branch-name>
 ```
 This command detects refactorings for all commits in the specified branch <branch-name> of a local repository. The tool will:
@@ -50,11 +106,11 @@ This command detects refactorings for all commits in the specified branch <branc
 - Output detected refactorings for each commit
 
 If no branch is specified, it will analyze commits from all branches:
-```
+```bash
 ./treefactor.sh -a <path-to-local-repo>
 ```
 ### 2. Analyzing a Specific Commit in a Local Repository
-```
+```bash
 ./treefactor.sh -c <path-to-local-repo> <commit-hash>
 ```
 This command detects refactorings at a specific commit <commit-hash> of a local repository. Useful when you want to:
@@ -63,7 +119,7 @@ This command detects refactorings at a specific commit <commit-hash> of a local 
 - Review historical changes
 
 ### 3. Analyzing a GitHub Repository Commit
-```
+```bash
 ./treefactor.sh -gc <git-url> <token> <commit-hash> <timeout>
 ```
 This command detects refactorings at a specified commit <commit-hash> for project <git-url> within the given <timeout> in seconds. It requires a GitHub authentication token.
@@ -74,7 +130,7 @@ This command detects refactorings at a specified commit <commit-hash> for projec
 ### Python
 The tool provides four types of refactoring detection for Python code, including:
 #### 1. Parameter Renaming
-```
+```python
 # Before
 def greet(msg):
     print(msg)
@@ -86,7 +142,7 @@ def greet(message):
 In this example, parameter is renamed from *msg* to *message*.
 
 #### 2. Parameter Addition
-```
+```python
 # Before
 def greet(name):
     print(f"Hello, {name}!")
@@ -98,7 +154,7 @@ def greet(name, greeting="Hello"):
 In this example, a new parameter with the name *greeting* is added.
 
 #### 3. Parameter Type Changes
-```
+```python
 # Before
 def process(data: list):
     pass
@@ -107,10 +163,10 @@ def process(data: list):
 def process(data: List[str]):
     pass
 ```
-In this example, the type of the parameter is changed from list to List[str].
+In this example, the type of the parameter is changed from *list* to *List[str]*.
 
 #### 4. Method Renaming
-```
+```python
 # Before
 def calc_sum(numbers):
     return sum(numbers)
@@ -123,7 +179,7 @@ In this example, the method is renamed from *calc_sum* to *calculate_sum*.
 
 ### JavaScript 
 For JavaScript, the tool currently supports parameter renaming detection.
-```
+```javaScript
 // Before
 function calculate(n) {
     return n * 2;
@@ -139,7 +195,7 @@ In this example, parameter is renamed from *n* to *num*.
 
 ### C++ 
 For C++, the tool currently supports parameter renaming detection.
-```
+```cpp
 // Before
 void process(int x) {
     std::cout << x << std::endl;
@@ -154,7 +210,7 @@ In this example, parameter is renamed from *x* to *value*.
 
 ## Output Format
 As shown in the real output, the tool provides detailed information about each refactoring:
-```
+```bash
 Commit ID: XXXXXX
 Commit Message: refactor
 Parent Commit ID: XXXXXX
@@ -235,7 +291,7 @@ The application is designed to be open for extension but closed for modification
 - RefactoringType enum can be extended with new refactoring types
 
 Example from `ASTVisitor.java`:
-```
+```java
 public abstract class ASTVisitor {
     // Base class that can be extended for new languages
     protected abstract void processModule(ASTNode node);
@@ -246,7 +302,7 @@ public abstract class ASTVisitor {
 
 ### 3. Liskov Substitution Principle
 Language-specific visitors can be used interchangeably through the base `ASTVisitor` class:
-```
+```java
 ASTVisitor visitor;
 if (extension.equals("py")) {
     visitor = new PythonASTVisitor(model, content, filePath);
@@ -263,7 +319,7 @@ Interfaces are kept focused and minimal:
 - `GitHistoryTreefactor` interface specifies only refactoring detection methods
 
 Example from `GitService.java`:
-```
+```java
 public interface GitService {
     Repository openRepository(String Folder) throws Exception;
     RevWalk createAllRevsWalk(Repository repository, String branch) throws Exception;
@@ -286,7 +342,7 @@ LCOM (Lack of Cohesion of Methods) values:
 ### Loose Coupling
 Example of loose coupling:
 `UMLModelReader` depends on abstract `ASTVisitor`, not concrete implementations:
-```
+```java
 ASTVisitor visitor = createVisitor(filePath, content);
 if (visitor != null) {
     visitor.visit(astRoot);
@@ -296,7 +352,7 @@ if (visitor != null) {
 ## Other Design Principles
 ### Information Hiding
 Private fields and methods are used to encapsulate implementation details:
-```
+```java
 public class UMLModelDiff {
     private final UMLModel oldModel;
     private final UMLModel newModel;
@@ -308,7 +364,7 @@ public class UMLModelDiff {
 ```
 ### DRY (Don't Repeat Yourself)
 Common functionality is extracted into reusable methods and classes:
-```
+```java
 public abstract class ASTVisitor {
     protected ASTNode findChildByType(ASTNode parent, String type) {
         // Reusable method for all visitors
