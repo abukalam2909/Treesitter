@@ -29,24 +29,28 @@ TreeFactor is a command-line tool for detecting refactoring operations in multi-
   - Method renaming
 - **Parameter Renaming Detection**: Supports parameter renaming detection in JavaScript and C++
 
-# Dependencies
-**1. Core Requirements**
-  - Java 11 or higher
-  - Git
-  - GCC compiler
-  - Bash shell environment
+## Dependencies
 
-**2. Tree-sitter Libraries**
-  - Core Tree-sitter library
-  - Language-specific parsers:
-    - tree-sitter-python
-    - tree-sitter-cpp
-    - tree-sitter-javascript
+### Core Requirements
+- **Java 11 or higher**  
+  Download Link: [Oracle JDK](https://www.oracle.com/java/technologies/javase-jdk11-downloads.html) | [OpenJDK](https://jdk.java.net/11/)
 
-**3. Operating System Support**
-  - macOS (dylib format)
-  - Linux (so format)
-  - Windows (dll format)
+- **Git**  
+  Download Link: [Git Official Website](https://git-scm.com/downloads)
+
+- **GCC Compiler**  
+  Download Link: [GCC on GNU Project](https://gcc.gnu.org/install/)
+
+- **Bash Shell Environment**  
+  Native OS Shell or Download Link (Optional):  
+  - [Git Bash for Windows](https://gitforwindows.org/) (Windows users)  
+  - [Install Bash on macOS/Linux](https://www.gnu.org/software/bash/)
+
+
+**Operating System Support**
+  - macOS
+  - Linux
+  - Windows
 
 # Build and Deployment Instructions
 
