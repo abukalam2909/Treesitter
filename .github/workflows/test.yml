@@ -32,14 +32,19 @@ jobs:
         run: |
           chmod +x ./setup_treefactor.sh
           ./setup_treefactor.sh
-          chmod +x ./libtree-sitter.so 
+          chmod 644 ./libtree-sitter.so 
           ls -la src/main/resources/native/linux/
           ls -la .
           pwd
 
       - name: ExportLibraryPath
         run: |  
-          export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${{ github.workspace }}" >> $GITHUB_ENV
+      
+      - name: Debug library info
+        run: |
+          file ./libtree-sitter.so
+          ldd ./libtree-sitter.so
 
       - name: Build with Maven
         run: |
