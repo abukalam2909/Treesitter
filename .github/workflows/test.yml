@@ -28,5 +28,19 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
-      - name: Run Tests
-        run: mvn test
+      - name: Install gcc
+        run: sudo apt-get update && sudo apt-get install -y build-essential gcc
+
+      - name: Run setup script
+        run: |
+          chmod +x ./setup_treefactor.sh
+          ./setup_treefactor.sh
+
+      - name: Run Tests with Maven
+        run: mvn -B test
+
+      - name: Generate Test Report
+        if: always()
+        run: |
+          echo "Test Results:"
+          find target/surefire-reports -name "TEST-*.xml" -exec cat {} \;
