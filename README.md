@@ -89,16 +89,21 @@ The application can be run with different options:
 ```bash
 ./treefactor.sh -gc https://github.com/username/repo [your-token] [commit-hash] [timeout]
 ```
+4. Display Help for Other Commands:
+```bash
+./treefactor.sh -h
+```
 
 # Usage Scenarios
 
 ## Command Line Options
 
-The tool supports three main command-line options:
+The tool supports four main command-line options:
 
 * `-a`: Analyze all commits in a local repository branch
 * `-c`: Analyze a specific commit in a local repository
 * `-gc`: Analyze a specific commit from a GitHub repository
+* `-h`: Display command formats for other commands
 
 ### 1. Analyzing All Commits in a Local Repository
 ```bash
