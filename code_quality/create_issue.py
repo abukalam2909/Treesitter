@@ -4,7 +4,7 @@ import requests
 from csv2md import table
 import csv
 
-def split_list(data, max_rows=200):
+def split_list(data, max_rows=150):
     # Keep headers for each chunk
     headers = data[0]
     chunks = []
