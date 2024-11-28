@@ -11,6 +11,21 @@
    - [Extension to Additional Languages](#2-extension-to-additional-languages)
    - [Development Approach Explanation](#development-approach-explanation)
 
+# Introduction
+
+TreeFactor is a command-line tool for detecting refactoring operations in multi-language software projects. It is built using tree-sitter for robust parsing and AST generation. The tool supports refactoring detection in Python, JavaScript, and C++ codebases, with primary focus on identifying parameter-related refactorings.
+
+## Features
+- **Multi-language Support**: Analyzes code in Python, JavaScript, and C++
+- **Git Integration**: Works directly with local Git repositories and GitHub repositories
+- **Comprehensive Python Support**: Full detection capabilities for Python, including:
+  - Parameter renaming
+  - Parameter addition
+  - Parameter type changes
+  - Method renaming
+- **Parameter Renaming Detection**: Supports parameter renaming detection in JavaScript and C++
+
+
 # Usage Scenarios
 
 ## Command Line Options
