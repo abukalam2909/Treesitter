@@ -28,8 +28,9 @@ jobs:
         run: |
           chmod +x ./setup_treefactor.sh
           ./setup_treefactor.sh
-      #    ls -la src/main/resources/native/linux/
-      #    ls -la .
+          chmod +x ./libtree-sitter.so 
+          ls -la src/main/resources/native/linux/
+          ls -la .
 
       - name: Build with Maven
         run: |
