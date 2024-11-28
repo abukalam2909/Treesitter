@@ -10,7 +10,11 @@
    - [Initial Refactoring Detection Rules and Python Support](#1-initial-refactoring-detection-rules-and-python-support)
    - [Extension to Additional Languages](#2-extension-to-additional-languages)
    - [Development Approach Explanation](#development-approach-explanation)
-
+6. [Design Principles](#design-principles)
+   - [SOLID Principles](#solid-principles)
+   - [Cohesion and Coupling](#cohesion-and-coupling)
+   - [Other Design Principles](#other-design-principles)
+   
 # Introduction
 
 TreeFactor is a command-line tool for detecting refactoring operations in multi-language software projects. It is built using tree-sitter for robust parsing and AST generation. The tool supports refactoring detection in Python, JavaScript, and C++ codebases, with primary focus on identifying parameter-related refactorings.
@@ -213,3 +217,109 @@ After establishing the core refactoring detection rules with Python, we extended
    - First creating tests for language-specific AST visitors
    - Implementing the visitors
    - Validating that both the visitor tests and refactoring detection tests passed
+  
+## Design Principles
+
+## SOLID Principles
+### 1. Single Responsibility Principle 
+Each class in the application has a well-defined single responsibility:
+- Language-specific visitors (`PythonASTVisitor`, `JSASTVisitor`, `CPPASTVisitor`): Each handles AST traversal for a single language
+- `UMLModelReader`: Responsible solely for reading source files and creating UML models
+- `UMLModelDiff`: Focused solely on comparing two UML models to detect refactorings
+  
+### 2. Open-Closed Principle 
+The application is designed to be open for extension but closed for modification:
+
+- Abstract `ASTVisitor` class allows adding new language support without modifying existing code
+- New visitors can be added by extending the base visitor class
+- RefactoringType enum can be extended with new refactoring types
+
+Example from `ASTVisitor.java`:
+```
+public abstract class ASTVisitor {
+    // Base class that can be extended for new languages
+    protected abstract void processModule(ASTNode node);
+    protected abstract void processClass(ASTNode node);
+    protected abstract void processMethod(ASTNode node);
+}
+```
+
+### 3. Liskov Substitution Principle
+Language-specific visitors can be used interchangeably through the base `ASTVisitor` class:
+```
+ASTVisitor visitor;
+if (extension.equals("py")) {
+    visitor = new PythonASTVisitor(model, content, filePath);
+} else if (extension.equals("js")) {
+    visitor = new JSASTVisitor(model, content, filePath);
+} else if (extension.equals("cpp")) {
+    visitor = new CPPASTVisitor(model, content, filePath);
+}
+```
+
+### 4. Interface Segregation Principle 
+Interfaces are kept focused and minimal:
+- `GitService` interface defines only essential Git operations
+- `GitHistoryTreefactor` interface specifies only refactoring detection methods
+
+Example from `GitService.java`:
+```
+public interface GitService {
+    Repository openRepository(String Folder) throws Exception;
+    RevWalk createAllRevsWalk(Repository repository, String branch) throws Exception;
+}
+```
+
+### 5. Dependency Inversion Principle 
+High-level modules depend on abstractions:
+- `UMLModelDiff` depends on abstract `UMLModel` rather than concrete implementations
+- Visitors depend on abstract `ASTNode` interface rather than concrete node implementations
+
+
+## Cohesion and Coupling
+### High Cohesion
+LCOM (Lack of Cohesion of Methods) values:
+   - UMLModelReader: 0.0 (High cohesion)
+   - UMLModelDiff: 0.0 (High cohesion)
+   - Language-specific visitors: Average 0.1 (High cohesion)
+
+### Loose Coupling
+Example of loose coupling:
+`UMLModelReader` depends on abstract `ASTVisitor`, not concrete implementations:
+```
+ASTVisitor visitor = createVisitor(filePath, content);
+if (visitor != null) {
+    visitor.visit(astRoot);
+}
+```
+
+## Other Design Principles
+### Information Hiding
+Private fields and methods are used to encapsulate implementation details:
+```
+public class UMLModelDiff {
+    private final UMLModel oldModel;
+    private final UMLModel newModel;
+    private final List<UMLOperationBodyMapper> operationBodyMappers;
+    
+    private void mapOperations() { ... }
+    private void mapClasses() { ... }
+}
+```
+### DRY (Don't Repeat Yourself)
+Common functionality is extracted into reusable methods and classes:
+```
+public abstract class ASTVisitor {
+    protected ASTNode findChildByType(ASTNode parent, String type) {
+        // Reusable method for all visitors
+        if (parent == null) return null;
+        for (ASTNode child : parent.getChildren()) {
+            if (child.getType().equals(type)) {
+                return child;
+            }
+        }
+        return null;
+    }
+}
+```
+
