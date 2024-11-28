@@ -38,6 +38,9 @@ jobs:
           ls -la src/main/resources/native/linux/
           ls -la .
 
+      - name: Build with Maven
+        run: mvn clean package
+
       - name: Run Tests
         run: |
           export MAVEN_OPTS="--enable-native-access=ALL-UNNAMED"
