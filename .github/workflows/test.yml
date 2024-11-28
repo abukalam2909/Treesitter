@@ -21,22 +21,20 @@ jobs:
           distribution: 'temurin'
           java-version: '22'
 
-      - name: Cache Maven packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
-
-      - name: Install gcc
-        run: sudo apt-get update && sudo apt-get install -y build-essential gcc
+      #- name: Install gcc
+      #  run: sudo apt-get update && sudo apt-get install -y build-essential gcc
 
       - name: Setup tree-sitter
         run: |
           chmod +x ./setup_treefactor.sh
           ./setup_treefactor.sh
-          ls -la src/main/resources/native/linux/
-          ls -la .
+      #    ls -la src/main/resources/native/linux/
+      #    ls -la .
+
+      - name: Build with Maven
+        run: |
+          export MAVEN_OPTS="--enable-native-access=ALL-UNNAMED -Djava.library.path=.:src/main/resources/native/linux"
+          mvn clean package
 
       - name: Run Tests
         run: |
