@@ -21,20 +21,27 @@ jobs:
           distribution: 'temurin'
           java-version: '22'
 
-      #- name: Install gcc
-      #  run: sudo apt-get update && sudo apt-get install -y build-essential gcc
-
+      - name: Cache Maven packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+       
       - name: Setup tree-sitter
         run: |
           chmod +x ./setup_treefactor.sh
           ./setup_treefactor.sh
-          chmod +x ./libtree-sitter.so 
-          ls -la src/main/resources/native/linux/
-          ls -la .
+          chmod 644 ./libtree-sitter.so
 
       - name: ExportLibraryPath
         run: |  
-          export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${{ github.workspace }}" >> $GITHUB_ENV
+      
+      - name: Debug library info
+        run: |
+          file ./libtree-sitter.so
+          ldd ./libtree-sitter.so
 
       - name: Build with Maven
         run: |
