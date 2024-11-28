@@ -31,16 +31,15 @@ jobs:
       - name: Install gcc
         run: sudo apt-get update && sudo apt-get install -y build-essential gcc
 
-      - name: Run setup script
+      - name: Setup tree-sitter
         run: |
           chmod +x ./setup_treefactor.sh
           ./setup_treefactor.sh
+          ls -la src/main/resources/native/linux/
+          ls -la .
 
-      - name: Run Tests with Maven
-        run: mvn -B test
-
-      - name: Generate Test Report
-        if: always()
+      - name: Run Tests
         run: |
-          echo "Test Results:"
+          mvn -B test
+          echo "------ Test Results ------"
           find target/surefire-reports -name "TEST-*.xml" -exec cat {} \;
