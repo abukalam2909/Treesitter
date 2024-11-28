@@ -32,10 +32,7 @@ jobs:
         run: |
           chmod +x ./setup_treefactor.sh
           ./setup_treefactor.sh
-          chmod 644 ./libtree-sitter.so 
-          ls -la src/main/resources/native/linux/
-          ls -la .
-          pwd
+          chmod 644 ./libtree-sitter.so
 
       - name: ExportLibraryPath
         run: |  
@@ -49,9 +46,7 @@ jobs:
       - name: Build with Maven
         run: |
           mvn clean package -DskipTests
-          pwd
 
       - name: Run Tests
         run: |
-          pwd
           mvn test
