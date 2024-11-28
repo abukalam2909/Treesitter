@@ -1,6 +1,7 @@
 package ca.dal.treefactor;
 
 import java.io.File;
+import java.util.Set;
 
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -16,7 +17,12 @@ import ca.dal.treefactor.util.GitServiceImpl;
 
 @SpringBootApplication
 public class TreefactorApplication {
-
+	private static final Set<String> HELP_OPTIONS = Set.of("-h", "--h", "-help", "--help");
+	private static final int MIN_ARGS_ALL_COMMITS = 2;
+    private static final int MIN_ARGS_SINGLE_COMMIT = 3;
+    private static final int REPO_FOLDER_INDEX = 1;
+    private static final int BRANCH_INDEX = 2;
+    private static final int COMMIT_ID_INDEX = 2;
 	public static void main(String[] args) throws Exception{
 		SpringApplication.run(TreefactorApplication.class, args);
 		if (args.length < 1) {
@@ -24,7 +30,7 @@ public class TreefactorApplication {
 			System.exit(0);
 		}
 		final String option = args[0];
-		if (option.equals("-h") || option.equals("--h") || option.equals("-help") || option.equals("--help")) {
+		if (HELP_OPTIONS.contains(option)) {
 			help();
 			System.exit(0);
 		}
@@ -52,12 +58,12 @@ public class TreefactorApplication {
 	}
 	static GithubUtil gutil = new GithubUtil();
 
-	private static void handleAllCommits(String[] args) throws Exception{
-		if (args.length < 2) {
-			throw new ArgumentException("Insufficient arguments for -a option.");
-		}
-		String repoFolder = args[1];
-		String branch = args.length >= 3 ? args[2] : null;  // Analyze all branches if branch is not provided
+	static void handleAllCommits(String[] args) throws Exception{
+		if (args.length < MIN_ARGS_ALL_COMMITS) {
+            throw new ArgumentException("Insufficient arguments for -a option.");
+        }
+        String repoFolder = args[REPO_FOLDER_INDEX];
+        String branch = args.length >= MIN_ARGS_ALL_COMMITS + 1 ? args[BRANCH_INDEX] : null;  // Analyze all branches if branch is not provided
 		
 		GitService gitService = new GitServiceImpl();
 		try (Repository repo = gitService.openRepository(repoFolder)) {
@@ -66,12 +72,12 @@ public class TreefactorApplication {
 		}
 	}
 
-	private static void handleCommit(String[] args) throws Exception {
-		if (args.length < 3) {
-			throw new ArgumentException("Insufficient arguments for -c option.");
-		}
-		String folder = args[1];
-		String commitId = args[2];
+	static void handleCommit(String[] args) throws Exception {
+		if (args.length < MIN_ARGS_SINGLE_COMMIT) {
+            throw new ArgumentException("Insufficient arguments for -c option.");
+        }
+        String folder = args[REPO_FOLDER_INDEX];
+        String commitId = args[COMMIT_ID_INDEX];
 		
 		GitService gitService = new GitServiceImpl();
 		try (Repository repo = gitService.openRepository(folder)) {
@@ -80,13 +86,13 @@ public class TreefactorApplication {
 		}
 	}
 
-	private static void handleGitHubCommit(String[] args) throws Exception {
-		Git gitHubRepo = null;
-		if (args.length < 3) {
-			throw new ArgumentException("Insufficient arguments for -gc option.");
-		}
-		String gitURL = args[1];
-		String commitId = args[2];
+	static void handleGitHubCommit(String[] args) throws Exception {
+		if (args.length < MIN_ARGS_SINGLE_COMMIT) {
+            throw new ArgumentException("Insufficient arguments for -gc option.");
+        }
+		Git gitHubRepo;
+        String gitURL = args[REPO_FOLDER_INDEX];
+        String commitId = args[COMMIT_ID_INDEX];
 		
 		try {
 			 gitHubRepo = gutil.getRepositoryPat(gitURL);
@@ -102,18 +108,25 @@ public class TreefactorApplication {
 		}
 	}
 
-	private static void help() {
+	static void help() {
 		System.out.println("-h\t\t\t\t\t\t\t\t\t\t\tShow options");
-		System.out.println(
-				"\n-a <git-repo-folder> <branch>\t\t\t\tDetect all refactorings at <branch> for <git-repo-folder>. If <branch> is not specified, commits from all branches are analyzed.");
-		System.out.println(
-				"\n-c <git-repo-folder> <commit-sha1>\t\t\tDetect refactorings at specified commit <commit-sha1> for project <git-repo-folder>");
-		System.out.println(
-				"\n-gc <git-URL> <commit-sha1>\t\tDetect refactorings at specified commit <commit-sha1> for project <git-URL>");
+		
+		String allCommitsHelp = "-a <git-repo-folder> <branch>\t\t\t\t" +
+			"Detect all refactorings at <branch> for <git-repo-folder>. " +
+			"If <branch> is not specified, commits from all branches are analyzed.";
+		System.out.println(allCommitsHelp);
+		
+		String singleCommitHelp = "-c <git-repo-folder> <commit-sha1>\t\t\t" +
+			"Detect refactorings at specified commit <commit-sha1> for project <git-repo-folder>";
+		System.out.println(singleCommitHelp);
+		
+		String githubCommitHelp = "-gc <git-URL> <commit-sha1>\t\t" +
+			"Detect refactorings at specified commit <commit-sha1> for project <git-URL>";
+		System.out.println(githubCommitHelp);
 	}
 
 	// Delete a directory and its contents
-    private static void deleteDirectory(File directory) {
+    static void deleteDirectory(File directory) {
         if (directory.exists()) {
             // Delete all files and subdirectories within the directory
             File[] files = directory.listFiles();
@@ -131,7 +144,7 @@ public class TreefactorApplication {
         }
     }
 
-	private static class ArgumentException extends Exception {
+	static class ArgumentException extends Exception {
 		public ArgumentException(String message) {
 			super(message);
 			System.err.println(message);

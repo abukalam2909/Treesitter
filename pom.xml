@@ -12,7 +12,7 @@
 	<artifactId>Treefactor</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>Treefactor</name>
-	<description>Demo project for Spring Boot</description>
+	<description>Developer tool to identify refactorings</description>
 	<url/>
 	<licenses>
 		<license/>
@@ -62,15 +62,27 @@
 			<scope>compile</scope>
 		</dependency>
 -->
+		<!-- JUnit 5 -->
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-api</artifactId>
+			<version>5.7.2</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-engine</artifactId>
+			<version>5.7.2</version>
+			<scope>test</scope>
+		</dependency>
+
 		<dependency>
 			<groupId>ch.qos.logback</groupId>
 			<artifactId>logback-classic</artifactId>
-			<version>1.5.12</version>
 		</dependency>
 		<dependency>
 			<groupId>ch.qos.logback</groupId>
 			<artifactId>logback-core</artifactId>
-			<version>1.5.12</version>
 		</dependency>
 
 	</dependencies>
