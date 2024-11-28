@@ -1,3 +1,20 @@
+# Table of Contents
+1. [Introduction](#introduction)
+2. [Getting Started](#getting-started)
+   - [Prerequisites](#prerequisites)
+   - [Installation](#installation)
+3. [Usage Scenarios](#usage-scenarios)
+   - [Command Line Options](#command-line-options)
+   - [Analyzing All Commits](#analyzing-all-commits-in-a-local-repository)
+   - [Analyzing a Specific Commit](#analyzing-a-specific-commit)
+   - [Analyzing a GitHub Repository Commit](#analyzing-a-github-repository-commit)
+   - [Supported Refactoring Types](#supported-refactoring-types)
+   - [Output Format Example](#output-format-example)
+4. [Test-Driven Development (TDD)](#test-driven-development-tdd)
+   - [Initial Refactoring Detection Rules and Python Support](#1-initial-refactoring-detection-rules-and-python-support)
+   - [Extension to Additional Languages](#2-extension-to-additional-languages)
+   - [Development Approach Explanation](#development-approach-explanation)
+
 # Usage Scenarios
 
 ## Command Line Options
@@ -137,3 +154,51 @@ The output includes:
 - List of detected refactorings with specific details about each change
 
 
+# Test-Driven Development (TDD)
+This project follows Test-Driven Development with the following implementation order:
+
+## 1. Initial Refactoring Detection Rules and Python Support
+We first developed the core refactoring detection functionality with Python as the initial supported language.
+
+### Python AST Visitor Implementation
+1. Initial Development:
+   - First Test: [270cb37](https://github.com/CSCI5308/course-project-g03/commit/270cb37) - Added test for PythonASTVisitor
+   - Implementation: [e8698f7](https://github.com/CSCI5308/course-project-g03/commit/e8698f7) - Updated PythonASTVisitor
+
+2. Keyword Parameters Feature:
+   - Test: [1e2fd3d](https://github.com/CSCI5308/course-project-g03/commit/1e2fd3dd654edacda2e2f1c08d98b2e6d707a009) - Added tests for KeywordOnlyParameters
+   - Implementation: [211efac](https://github.com/CSCI5308/course-project-g03/commit/211efacaa586abb42ac0905d89e5d044e371298b) - Implemented keyword-only parameters detection
+
+### UML Model and Refactoring Detection
+1. Test Creation: [63ac58e](https://github.com/CSCI5308/course-project-g03/commit/63ac58e214c6bfe832b43000c844c72685c690f2) - UMLModelTest
+2. Implementation: [0c1230d](https://github.com/CSCI5308/course-project-g03/commit/0c1230da1cbae6796d2143c1e86870a0a353b52b) - UMLModel and Refactoring Detection Implementation
+
+## 2. Extension to Additional Languages
+After establishing the core refactoring detection rules with Python, we extended support to C++ and JavaScript.
+
+### C++ Support
+1. AST Visitor Development:
+   - Test: [b885569](https://github.com/CSCI5308/course-project-g03/commit/b885569140edabd999f69ccc1ed018a7b1c91111) - Added CPPASTVisitor tests
+   - Implementation: [c99dbf9](https://github.com/CSCI5308/course-project-g03/commit/c99dbf9569060598bc568b6304d751b53216b597) - Implemented CPPASTVisitor
+   - Test Validation: [92ee414](https://github.com/CSCI5308/course-project-g03/commit/92ee414a570aa86855389d252a6219ef8fff93ca) - All tests passing
+  
+2. Refactoring Detection Test:
+   - Test: [b8b9768](https://github.com/CSCI5308/course-project-g03/commit/b8b9768) - Created CppRenameParameterTest
+
+### JavaScript Support
+
+1. AST Visitor Development:
+   - Test: [28374ed](https://github.com/CSCI5308/course-project-g03/commit/28374ed1a01938f1e4841efe6c81ab49d554e25a) - Added JSASTVisitor tests
+   - Implementation: [d055021](https://github.com/CSCI5308/course-project-g03/commit/d055021826d52e329c9b4e892c181aa343c98e81) - Implemented JSASTVisitor
+2. Refactoring Detection Test:
+   - Test: [5603ae0](https://github.com/CSCI5308/course-project-g03/commit/5603ae0) - Created JSRenameParameterTest
+
+## Development Approach Explanation
+1. We first developed and tested the core refactoring detection rules using Python as our initial language. 
+
+2. Once the core rules were working with Python, we created specific tests for C++ and JavaScript (CppRenameParameterTest and JSRenameParameterTest) to verify that our refactoring detection rules could be applied to these languages.
+
+3. For each language, we followed TDD by:
+   - First creating tests for language-specific AST visitors
+   - Implementing the visitors
+   - Validating that both the visitor tests and refactoring detection tests passed
