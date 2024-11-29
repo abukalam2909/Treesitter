@@ -12,7 +12,7 @@
 	<artifactId>Treefactor</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>Treefactor</name>
-	<description>Demo project for Spring Boot</description>
+	<description>Developer tool to identify refactorings</description>
 	<url/>
 	<licenses>
 		<license/>
@@ -40,11 +40,6 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
-		<dependency>
-			<groupId>org.eclipse.jgit</groupId>
-			<artifactId>org.eclipse.jgit</artifactId>
-			<version>7.0.0.202409031743-r</version>
-		</dependency>
 
 		<!-- https://mvnrepository.com/artifact/org.eclipse.jgit/org.eclipse.jgit -->
 		<dependency>
@@ -58,6 +53,36 @@
 			<groupId>io.github.tree-sitter</groupId>
 			<artifactId>jtreesitter</artifactId>
 			<version>0.23.2</version>
+		</dependency>
+<!--
+		<dependency>
+			<groupId>org.testng</groupId>
+			<artifactId>testng</artifactId>
+			<version>RELEASE</version>
+			<scope>compile</scope>
+		</dependency>
+-->
+		<!-- JUnit 5 -->
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-api</artifactId>
+			<version>5.7.2</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-engine</artifactId>
+			<version>5.7.2</version>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-classic</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-core</artifactId>
 		</dependency>
 
 	</dependencies>
@@ -76,19 +101,12 @@
 					<target>22</target>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>2.22.2</version>
+			</plugin>
 		</plugins>
-
-		<!-- Tree-sitter Resources -->
-		<resources>
-			<resource>
-				<directory>src/main/resources</directory>
-				<includes>
-					<include>**/*.dll</include>
-					<include>**/*.dylib</include>
-					<include>**/*.so</include>
-				</includes>
-			</resource>
-		</resources>
 	</build>
 
 

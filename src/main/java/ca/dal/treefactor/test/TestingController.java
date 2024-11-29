@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import ca.dal.treefactor.github.GithubUtil;
 import ca.dal.treefactor.test.dto.GithubCloneBody;
 
 // TODO Remove when CLI is built
