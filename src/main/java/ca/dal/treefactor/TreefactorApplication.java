@@ -120,7 +120,7 @@ public class TreefactorApplication {
 			"Detect refactorings at specified commit <commit-sha1> for project <git-repo-folder>";
 		System.out.println(singleCommitHelp);
 		
-		String githubCommitHelp = "-gc <git-URL> <commit-sha1>\t\t" +
+		String githubCommitHelp = "-gc <git-URL> <commit-sha1>\t\t\t\t" +
 			"Detect refactorings at specified commit <commit-sha1> for project <git-URL>";
 		System.out.println(githubCommitHelp);
 	}
