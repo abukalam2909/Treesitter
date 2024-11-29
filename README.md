@@ -72,7 +72,7 @@ chmod +x setup_treefactor.sh
 ## 2. Build the Project
 Build using Maven:
 ```bash
-mvn clean install
+mvn clean package
 ```
 
 ## 3. Run the Application
